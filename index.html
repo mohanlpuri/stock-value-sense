@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StockValueSense</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent: #c9f542;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --green-bg: rgba(74, 222, 128, 0.1);
+      --yellow-bg: rgba(251, 191, 36, 0.1);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 2.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+
+    .logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2.2rem;
+      color: var(--accent);
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .tagline {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 2rem;
+      align-items: center;
+    }
+
+    .search-bar input {
+      flex: 1;
+      max-width: 300px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 15px;
+      font-family: 'DM Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-bar input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-bar input::placeholder {
+      color: var(--muted);
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 16px;
+      font-size: 13px;
+    }
+
+    .btn-outline:hover {
+      border-color: var(--muted);
+      color: var(--text);
+      opacity: 1;
+    }
+
+    /* Current stock card */
+    .stock-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      display: none;
+    }
+
+    .stock-card.visible { display: block; }
+
+    .card-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 1.25rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-ticker {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem;
+      color: var(--accent);
+    }
+
+    .card-name {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .card-date {
+      margin-left: auto;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .metric-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .metric.highlight-green {
+      border-color: var(--green);
+      background: var(--green-bg);
+    }
+
+    .metric.highlight-green .metric-value { color: var(--green); }
+
+    .metric.highlight-yellow {
+      border-color: var(--yellow);
+      background: var(--yellow-bg);
+    }
+
+    .metric.highlight-yellow .metric-value { color: var(--yellow); }
+
+    /* Legend */
+    .legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 1.5rem;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+    }
+    .legend-dot.green { background: var(--green); }
+    .legend-dot.yellow { background: var(--yellow); }
+
+    /* History table */
+    .history-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .history-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.3rem;
+      color: var(--text);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-family: 'DM Mono', monospace;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface); }
+
+    .td-ticker {
+      font-family: 'DM Mono', monospace;
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--accent);
+    }
+
+    .td-date {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .cell-green {
+      color: var(--green);
+      font-weight: 600;
+    }
+
+    .cell-yellow {
+      color: var(--yellow);
+      font-weight: 600;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--muted);
+      font-size: 14px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'DM Mono', monospace;
+      padding: 8px 0;
+    }
+
+    .error {
+      color: var(--red);
+      font-size: 13px;
+      font-family: 'DM Mono', monospace;
+      padding: 8px 0;
+    }
+
+    .saved-badge {
+      display: inline-block;
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid var(--green);
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'DM Mono', monospace;
+      padding: 2px 8px;
+      margin-left: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+
+    <header>
+      <div class="logo">StockValueSense</div>
+      <div class="tagline">// evaluate · track · decide</div>
+    </header>
+
+    <div class="search-bar">
+      <input type="text" id="tickerInput" placeholder="Enter ticker e.g. AAPL" maxlength="10">
+      <button class="btn" id="lookupBtn">Evaluate</button>
+    </div>
+
+    <div id="statusMsg"></div>
+
+    <!-- Current stock card -->
+    <div class="stock-card" id="stockCard">
+      <div class="card-header">
+        <div class="card-ticker" id="cardTicker"></div>
+        <div class="card-name" id="cardName"></div>
+        <div class="card-date" id="cardDate"></div>
+      </div>
+      <div class="metrics-grid" id="metricsGrid"></div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot green"></div> Attractive value</div>
+      <div class="legend-item"><div class="legend-dot yellow"></div> Caution — high valuation</div>
+    </div>
+
+    <!-- History -->
+    <div class="history-header">
+      <div class="history-title">Evaluation History</div>
+      <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Ticker</th>
+            <th>Price</th>
+            <th>52W High</th>
+            <th>52W Low</th>
+            <th>P/E</th>
+            <th>Book Value</th>
+            <th>P/B</th>
+            <th>Sector P/E</th>
+            <th>Analyst Rating</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr><td colspan="10" class="empty-state">No evaluations yet. Enter a ticker above to get started.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <script>
+
+    function today() {
+      return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    }
+
+    function fmt(val, prefix='', suffix='', decimals=2) {
+      if (val === null || val === undefined || val === '') return 'N/A'
+      return prefix + parseFloat(val).toFixed(decimals) + suffix
+    }
+
+    function peClass(pe) {
+      if (!pe) return ''
+      if (pe < 20) return 'cell-green'
+      if (pe > 40) return 'cell-yellow'
+      return ''
+    }
+
+    function pbClass(pb) {
+      if (!pb) return ''
+      if (pb < 3) return 'cell-green'
+      if (pb > 10) return 'cell-yellow'
+      return ''
+    }
+
+    function priceClass(price, high52) {
+      if (!price || !high52) return ''
+      if (price < high52 * 0.6) return 'cell-green'
+      return ''
+    }
+
+    function metricHighlight(type, value) {
+      if (type === 'pe') {
+        if (value && value < 20) return 'highlight-green'
+        if (value && value > 40) return 'highlight-yellow'
+      }
+      if (type === 'pb') {
+        if (value && value < 3) return 'highlight-green'
+        if (value && value > 10) return 'highlight-yellow'
+      }
+      if (type === 'price52') {
+        if (value) return 'highlight-green'
+      }
+      return ''
+    }
+
+    async function lookup() {
+      const ticker = document.getElementById('tickerInput').value.trim().toUpperCase()
+      if (!ticker) return
+
+      const btn = document.getElementById('lookupBtn')
+      const status = document.getElementById('statusMsg')
+      btn.disabled = true
+      btn.textContent = 'Evaluating...'
+      status.innerHTML = '<div class="status">Fetching data for ' + ticker + '...</div>'
+
+      try {
+        const res = await fetch('/.netlify/functions/stock-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ticker })
+        })
+        const data = await res.json()
+
+        if (data.error) {
+          status.innerHTML = '<div class="error">Error: ' + data.error + '</div>'
+          btn.disabled = false
+          btn.textContent = 'Evaluate'
+          return
+        }
+
+        const s = data.stock
+        const pb = (s.price && s.bookValue) ? (s.price / s.bookValue) : null
+        const below60pct = s.price && s.week52High && s.price < s.week52High * 0.6
+
+        // Show card
+        document.getElementById('cardTicker').textContent = s.ticker
+        document.getElementById('cardName').textContent = s.name || ''
+        document.getElementById('cardDate').textContent = today()
+
+        const metrics = [
+          { label: 'Price', value: fmt(s.price, '$'), type: 'price', raw: s.price },
+          { label: 'P/E Ratio', value: fmt(s.peRatio, '', 'x'), type: 'pe', raw: s.peRatio },
+          { label: 'Book Value', value: fmt(s.bookValue, '$'), type: null },
+          { label: 'P/B Ratio', value: fmt(pb, '', 'x'), type: 'pb', raw: pb },
+          { label: '52W High', value: fmt(s.week52High, '$'), type: null },
+          { label: '52W Low', value: fmt(s.week52Low, '$'), type: null },
+          { label: 'Price vs 52W High', value: below60pct ? '< 40% of High ✓' : fmt(s.price, '$'), type: 'price52', raw: below60pct },
+          { label: 'Sector P/E', value: fmt(s.sectorPE, '', 'x'), type: null },
+          { label: 'Analyst Rating', value: s.analystRating || 'N/A', type: null },
+        ]
+
+        document.getElementById('metricsGrid').innerHTML = metrics.map(m => {
+          const cls = m.type === 'pe' ? metricHighlight('pe', m.raw)
+                    : m.type === 'pb' ? metricHighlight('pb', m.raw)
+                    : m.type === 'price52' ? metricHighlight('price52', m.raw)
+                    : ''
+          return '<div class="metric ' + cls + '">' +
+            '<div class="metric-label">' + m.label + '</div>' +
+            '<div class="metric-value">' + m.value + '</div>' +
+          '</div>'
+        }).join('')
+
+        document.getElementById('stockCard').classList.add('visible')
+        status.innerHTML = '<div class="status">Saved to Google Sheet <span class="saved-badge">✓ Saved</span></div>'
+
+        // Refresh history
+        loadHistory()
+
+      } catch(e) {
+        status.innerHTML = '<div class="error">Something went wrong: ' + e.message + '</div>'
+      }
+
+      btn.disabled = false
+      btn.textContent = 'Evaluate'
+    }
+
+    async function loadHistory() {
+      try {
+        const res = await fetch('/.netlify/functions/stock-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'history' })
+        })
+        const data = await res.json()
+        const rows = data.rows || []
+
+        if (rows.length === 0) {
+          document.getElementById('historyBody').innerHTML =
+            '<tr><td colspan="10" class="empty-state">No evaluations yet.</td></tr>'
+          return
+        }
+
+        // Skip header row
+        const dataRows = rows.slice(1)
+
+        document.getElementById('historyBody').innerHTML = dataRows.map(row => {
+          const date    = row[0] || ''
+          const ticker  = row[1] || ''
+          const price   = row[2] || ''
+          const high52  = row[3] || ''
+          const low52   = row[4] || ''
+          const pe      = row[5] || ''
+          const bv      = row[6] || ''
+          const pb      = row[7] || ''
+          const spe     = row[8] || ''
+          const analyst = row[9] || ''
+
+          const peNum = parseFloat(pe)
+          const pbNum = parseFloat(pb)
+          const priceNum = parseFloat(price)
+          const high52Num = parseFloat(high52)
+
+          return '<tr>' +
+            '<td class="td-date">' + date + '</td>' +
+            '<td class="td-ticker">' + ticker + '</td>' +
+            '<td>$' + price + '</td>' +
+            '<td>' + (high52 ? '$' + high52 : 'N/A') + '</td>' +
+            '<td>' + (low52 ? '$' + low52 : 'N/A') + '</td>' +
+            '<td class="' + peClass(peNum) + '">' + (pe ? pe + 'x' : 'N/A') + '</td>' +
+            '<td>' + (bv ? '$' + bv : 'N/A') + '</td>' +
+            '<td class="' + pbClass(pbNum) + '">' + (pb ? pb + 'x' : 'N/A') + '</td>' +
+            '<td>' + (spe ? spe + 'x' : 'N/A') + '</td>' +
+            '<td>' + analyst + '</td>' +
+          '</tr>'
+        }).join('')
+
+      } catch(e) {
+        console.error('History load failed:', e)
+      }
+    }
+
+    document.getElementById('lookupBtn').addEventListener('click', lookup)
+    document.getElementById('refreshBtn').addEventListener('click', loadHistory)
+    document.getElementById('tickerInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') lookup()
+    })
+
+    // Load history on page load
+    loadHistory()
+
+  </script>
+
+</body>
+</html>
