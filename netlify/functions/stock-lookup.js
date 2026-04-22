@@ -19,55 +19,57 @@ async function getAccessToken() {
   const claimB64 = encode(claim)
   const unsigned = headerB64 + '.' + claimB64
 
-  // Sign with private key using crypto
   const crypto = require('crypto')
   const sign = crypto.createSign('RSA-SHA256')
   sign.update(unsigned)
   const signature = sign.sign(PRIVATE_KEY, 'base64url')
   const jwt = unsigned + '.' + signature
 
-  // Exchange JWT for access token
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
   })
   const data = await res.json()
+  console.log('Access token status:', data.access_token ? 'ok' : 'failed')
   return data.access_token
 }
 
-// Fetch stock data from Yahoo Finance
+// Fetch stock data from Twelve Data
 async function fetchStock(ticker) {
-  const url = `https://query2.finance.yahoo.com/v8/finance/quote?symbols=${ticker}&fields=symbol,shortName,regularMarketPrice,fiftyTwoWeekHigh,fiftyTwoWeekLow,trailingPE,bookValue,averageAnalystRating,trailingEps`
+  const apiKey = process.env.TWELVE_DATA_API_KEY
+  const url = `https://api.twelvedata.com/quote?symbol=${ticker}&apikey=${apiKey}`
 
-  const res = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Referer': 'https://finance.yahoo.com'
-    }
-  })
+  const res = await fetch(url)
+  console.log('Twelve Data status:', res.status)
 
-  const data = await res.json()
-  const q = data?.quoteResponse?.result?.[0]
-  if (!q) return null
+  const q = await res.json()
 
-  const price = q.regularMarketPrice || null
-  const bookValue = q.bookValue || null
-  const pb = (price && bookValue) ? parseFloat((price / bookValue).toFixed(2)) : null
+  if (!q || q.code || !q.symbol) {
+    console.log('Stock not found or error:', q.message || 'unknown')
+    return null
+  }
+
+  const price = parseFloat(q.close)
+  const bookValue = null // Not available in Twelve Data free tier
+  const pb = null
 
   return {
     ticker: q.symbol,
-    name: q.shortName || q.symbol,
+    name: q.name || q.symbol,
     price: price ? parseFloat(price.toFixed(2)) : null,
-    week52High: q.fiftyTwoWeekHigh ? parseFloat(q.fiftyTwoWeekHigh.toFixed(2)) : null,
-    week52Low: q.fiftyTwoWeekLow ? parseFloat(q.fiftyTwoWeekLow.toFixed(2)) : null,
-    peRatio: q.trailingPE ? parseFloat(q.trailingPE.toFixed(2)) : null,
-    bookValue: bookValue ? parseFloat(bookValue.toFixed(2)) : null,
+    week52High: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.high).toFixed(2)) : null,
+    week52Low: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.low).toFixed(2)) : null,
+    peRatio: q.pe ? parseFloat(parseFloat(q.pe).toFixed(2)) : null,
+    bookValue: bookValue,
     pb: pb,
-    sectorPE: null, // Yahoo doesn't provide sector P/E directly
-    analystRating: q.averageAnalystRating || null
+    sectorPE: null,
+    analystRating: null,
+    exchange: q.exchange || null,
+    volume: q.volume ? parseInt(q.volume) : null,
+    avgVolume: q.average_volume ? parseInt(q.average_volume) : null,
+    change: q.change ? parseFloat(parseFloat(q.change).toFixed(2)) : null,
+    changePercent: q.percent_change ? parseFloat(parseFloat(q.percent_change).toFixed(2)) : null
   }
 }
 
@@ -85,7 +87,7 @@ async function readSheet(token) {
 function findTickerRow(rows, ticker) {
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][1] && rows[i][1].toUpperCase() === ticker.toUpperCase()) {
-      return i + 1 // Google Sheets rows are 1-based
+      return i + 1
     }
   }
   return -1
@@ -107,20 +109,17 @@ async function saveToSheet(token, stock) {
     stock.analystRating || ''
   ]
 
-  // Read existing rows to check if ticker exists
   const rows = await readSheet(token)
   const existingRow = findTickerRow(rows, stock.ticker)
 
   let url, method, body
 
   if (existingRow > 0) {
-    // Update existing row
     url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A${existingRow}:J${existingRow}?valueInputOption=RAW`
     method = 'PUT'
     body = JSON.stringify({ values: [row] })
     console.log('Updating existing row:', existingRow)
   } else {
-    // Append new row
     url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
     method = 'POST'
     body = JSON.stringify({ values: [row] })
@@ -156,7 +155,6 @@ exports.handler = async function(event) {
 
     // Get Google access token
     const token = await getAccessToken()
-    console.log('Got access token:', token ? 'yes' : 'no')
 
     // History request
     if (body.action === 'history') {
