@@ -31,45 +31,59 @@ async function getAccessToken() {
     body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + jwt
   })
   const data = await res.json()
-  console.log('Access token status:', data.access_token ? 'ok' : 'failed')
+  console.log('Access token:', data.access_token ? 'ok' : 'failed')
   return data.access_token
 }
 
-// Fetch stock data from Twelve Data
-async function fetchStock(ticker) {
+// Fetch price data from Twelve Data
+async function fetchPriceData(ticker) {
   const apiKey = process.env.TWELVE_DATA_API_KEY
   const url = `https://api.twelvedata.com/quote?symbol=${ticker}&apikey=${apiKey}`
-
   const res = await fetch(url)
-  console.log('Twelve Data status:', res.status)
-
   const q = await res.json()
-
-  if (!q || q.code || !q.symbol) {
-    console.log('Stock not found or error:', q.message || 'unknown')
-    return null
-  }
-
-  const price = parseFloat(q.close)
-  const bookValue = null // Not available in Twelve Data free tier
-  const pb = null
-
+  console.log('Twelve Data status:', res.status, q.code || 'ok')
+  if (!q || q.code || !q.symbol) return null
   return {
     ticker: q.symbol,
     name: q.name || q.symbol,
-    price: price ? parseFloat(price.toFixed(2)) : null,
+    price: q.close ? parseFloat(parseFloat(q.close).toFixed(2)) : null,
     week52High: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.high).toFixed(2)) : null,
     week52Low: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.low).toFixed(2)) : null,
-    peRatio: q.pe ? parseFloat(parseFloat(q.pe).toFixed(2)) : null,
-    bookValue: bookValue,
-    pb: pb,
-    sectorPE: null,
-    analystRating: null,
-    exchange: q.exchange || null,
     volume: q.volume ? parseInt(q.volume) : null,
     avgVolume: q.average_volume ? parseInt(q.average_volume) : null,
+    exchange: q.exchange || null,
     change: q.change ? parseFloat(parseFloat(q.change).toFixed(2)) : null,
     changePercent: q.percent_change ? parseFloat(parseFloat(q.percent_change).toFixed(2)) : null
+  }
+}
+
+// Fetch fundamentals from FMP
+async function fetchFundamentals(ticker) {
+  const apiKey = process.env.FMP_API_KEY
+
+  // Fetch ratios TTM
+  const ratiosUrl = `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${ticker}&apikey=${apiKey}`
+  const ratiosRes = await fetch(ratiosUrl)
+  const ratiosData = await ratiosRes.json()
+  console.log('FMP ratios status:', ratiosRes.status)
+
+  // Fetch profile for sector
+  const profileUrl = `https://financialmodelingprep.com/stable/profile?symbol=${ticker}&apikey=${apiKey}`
+  const profileRes = await fetch(profileUrl)
+  const profileData = await profileRes.json()
+  console.log('FMP profile status:', profileRes.status)
+
+  const ratios = ratiosData && ratiosData[0] ? ratiosData[0] : null
+  const profile = profileData && profileData[0] ? profileData[0] : null
+
+  return {
+    peRatio: ratios ? parseFloat(parseFloat(ratios.priceToEarningsRatioTTM).toFixed(2)) : null,
+    pbRatio: ratios ? parseFloat(parseFloat(ratios.priceToBookRatioTTM).toFixed(2)) : null,
+    bookValue: ratios ? parseFloat(parseFloat(ratios.bookValuePerShareTTM).toFixed(2)) : null,
+    dividendYield: ratios ? parseFloat(parseFloat(ratios.dividendYieldTTM * 100).toFixed(2)) : null,
+    sector: profile ? profile.sector : null,
+    industry: profile ? profile.industry : null,
+    marketCap: profile ? profile.marketCap : null
   }
 }
 
@@ -83,7 +97,7 @@ async function readSheet(token) {
   return data.values || []
 }
 
-// Find row index of existing ticker (1-based, returns -1 if not found)
+// Find row index of existing ticker
 function findTickerRow(rows, ticker) {
   for (let i = 1; i < rows.length; i++) {
     if (rows[i][1] && rows[i][1].toUpperCase() === ticker.toUpperCase()) {
@@ -104,9 +118,9 @@ async function saveToSheet(token, stock) {
     stock.week52Low || '',
     stock.peRatio || '',
     stock.bookValue || '',
-    stock.pb || '',
-    stock.sectorPE || '',
-    stock.analystRating || ''
+    stock.pbRatio || '',
+    stock.sector || '',
+    stock.dividendYield ? stock.dividendYield + '%' : ''
   ]
 
   const rows = await readSheet(token)
@@ -169,10 +183,29 @@ exports.handler = async function(event) {
     }
 
     console.log('Looking up ticker:', ticker)
-    const stock = await fetchStock(ticker)
 
-    if (!stock) {
+    // Fetch both data sources in parallel
+    const [priceData, fundamentals] = await Promise.all([
+      fetchPriceData(ticker),
+      fetchFundamentals(ticker)
+    ])
+
+    if (!priceData) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Stock not found: ' + ticker }) }
+    }
+
+    // Merge data
+    const stock = {
+      ...priceData,
+      peRatio: fundamentals.peRatio,
+      pbRatio: fundamentals.pbRatio,
+      bookValue: fundamentals.bookValue,
+      dividendYield: fundamentals.dividendYield,
+      sector: fundamentals.sector,
+      industry: fundamentals.industry,
+      marketCap: fundamentals.marketCap,
+      sectorPE: null,
+      analystRating: null
     }
 
     console.log('Stock data:', JSON.stringify(stock))
