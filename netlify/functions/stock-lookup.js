@@ -193,11 +193,11 @@ exports.handler = async function(event) {
       fetchRecommendations(ticker)
     ])
 
-    if (!quote || !quote.c) {
+    if (!quote || (!quote.c && !quote.pc)) { {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Stock not found: ' + ticker }) }
     }
 
-    const price = quote.c
+    const price = quote.c || quote.pc
     const bookValue = metrics.bookValuePerShareAnnual || null
     const peRatio = metrics.peAnnual || metrics.peTTM || null
     const pbRatio = metrics.pb || null
