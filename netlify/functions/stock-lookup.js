@@ -41,7 +41,7 @@ async function fetchQuote(ticker) {
   const url = `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`
   const res = await fetch(url)
   const data = await res.json()
-  console.log('Finnhub quote status:', res.status)
+  console.log('Finnhub quote status:', res.status, 'c:', data.c, 'pc:', data.pc)
   return data
 }
 
@@ -69,7 +69,6 @@ async function fetchRecommendations(ticker) {
   const res = await fetch(url)
   const data = await res.json()
   console.log('Finnhub recommendations status:', res.status)
-  // Return most recent recommendation
   return data && data.length > 0 ? data[0] : null
 }
 
@@ -81,16 +80,16 @@ function summarizeRating(rec) {
   if (total === 0) return null
   const bullish = strongBuy + buy
   const bearish = sell + strongSell
-  if (strongBuy > buy && strongBuy > hold) return `Strong Buy (${strongBuy}/${total})`
-  if (bullish > hold && bullish > bearish) return `Buy (${bullish}/${total})`
-  if (hold >= bullish && hold >= bearish) return `Hold (${hold}/${total})`
-  if (bearish > bullish) return `Sell (${bearish}/${total})`
-  return `Hold (${hold}/${total})`
+  if (strongBuy > buy && strongBuy > hold) return 'Strong Buy (' + strongBuy + '/' + total + ')'
+  if (bullish > hold && bullish > bearish) return 'Buy (' + bullish + '/' + total + ')'
+  if (hold >= bullish && hold >= bearish) return 'Hold (' + hold + '/' + total + ')'
+  if (bearish > bullish) return 'Sell (' + bearish + '/' + total + ')'
+  return 'Hold (' + hold + '/' + total + ')'
 }
 
 // Read all rows from Google Sheet
 async function readSheet(token) {
-  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1`
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1'
   const res = await fetch(url, {
     headers: { 'Authorization': 'Bearer ' + token }
   })
@@ -130,12 +129,12 @@ async function saveToSheet(token, stock) {
   let url, method, body
 
   if (existingRow > 0) {
-    url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A${existingRow}:J${existingRow}?valueInputOption=RAW`
+    url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1!A' + existingRow + ':J' + existingRow + '?valueInputOption=RAW'
     method = 'PUT'
     body = JSON.stringify({ values: [row] })
     console.log('Updating existing row:', existingRow)
   } else {
-    url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
+    url = 'https://sheets.googleapis.com/v4/spreadsheets/' + SHEET_ID + '/values/Sheet1!A:J:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS'
     method = 'POST'
     body = JSON.stringify({ values: [row] })
     console.log('Appending new row for:', stock.ticker)
@@ -193,11 +192,13 @@ exports.handler = async function(event) {
       fetchRecommendations(ticker)
     ])
 
-    if (!quote || (!quote.c && !quote.pc)) { {
+    // Use current price or fall back to previous close when market is closed
+    const price = quote.c || quote.pc
+
+    if (!quote || !price) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Stock not found: ' + ticker }) }
     }
 
-    const price = quote.c || quote.pc
     const bookValue = metrics.bookValuePerShareAnnual || null
     const peRatio = metrics.peAnnual || metrics.peTTM || null
     const pbRatio = metrics.pb || null
