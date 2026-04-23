@@ -1,6 +1,7 @@
 const SHEET_ID = process.env.GOOGLE_SHEET_ID_TRACKER
 const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL
 const PRIVATE_KEY = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY
 
 // Generate JWT for Google Sheets API auth
 async function getAccessToken() {
@@ -35,56 +36,56 @@ async function getAccessToken() {
   return data.access_token
 }
 
-// Fetch price data from Twelve Data
-async function fetchPriceData(ticker) {
-  const apiKey = process.env.TWELVE_DATA_API_KEY
-  const url = `https://api.twelvedata.com/quote?symbol=${ticker}&apikey=${apiKey}`
+// Fetch quote data from Finnhub
+async function fetchQuote(ticker) {
+  const url = `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`
   const res = await fetch(url)
-  const q = await res.json()
-  console.log('Twelve Data status:', res.status, q.code || 'ok')
-  if (!q || q.code || !q.symbol) return null
-  return {
-    ticker: q.symbol,
-    name: q.name || q.symbol,
-    price: q.close ? parseFloat(parseFloat(q.close).toFixed(2)) : null,
-    week52High: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.high).toFixed(2)) : null,
-    week52Low: q.fifty_two_week ? parseFloat(parseFloat(q.fifty_two_week.low).toFixed(2)) : null,
-    volume: q.volume ? parseInt(q.volume) : null,
-    avgVolume: q.average_volume ? parseInt(q.average_volume) : null,
-    exchange: q.exchange || null,
-    change: q.change ? parseFloat(parseFloat(q.change).toFixed(2)) : null,
-    changePercent: q.percent_change ? parseFloat(parseFloat(q.percent_change).toFixed(2)) : null
-  }
+  const data = await res.json()
+  console.log('Finnhub quote status:', res.status)
+  return data
 }
 
-// Fetch fundamentals from FMP
-async function fetchFundamentals(ticker) {
-  const apiKey = process.env.FMP_API_KEY
+// Fetch basic financials from Finnhub (PE, Book Value, 52W High/Low)
+async function fetchMetrics(ticker) {
+  const url = `https://finnhub.io/api/v1/stock/metric?symbol=${ticker}&metric=all&token=${FINNHUB_KEY}`
+  const res = await fetch(url)
+  const data = await res.json()
+  console.log('Finnhub metrics status:', res.status)
+  return data.metric || {}
+}
 
-  // Fetch ratios TTM
-  const ratiosUrl = `https://financialmodelingprep.com/stable/ratios-ttm?symbol=${ticker}&apikey=${apiKey}`
-  const ratiosRes = await fetch(ratiosUrl)
-  const ratiosData = await ratiosRes.json()
-  console.log('FMP ratios status:', ratiosRes.status)
+// Fetch company profile from Finnhub (sector, name)
+async function fetchProfile(ticker) {
+  const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${ticker}&token=${FINNHUB_KEY}`
+  const res = await fetch(url)
+  const data = await res.json()
+  console.log('Finnhub profile status:', res.status)
+  return data
+}
 
-  // Fetch profile for sector
-  const profileUrl = `https://financialmodelingprep.com/stable/profile?symbol=${ticker}&apikey=${apiKey}`
-  const profileRes = await fetch(profileUrl)
-  const profileData = await profileRes.json()
-  console.log('FMP profile status:', profileRes.status)
+// Fetch analyst recommendations from Finnhub
+async function fetchRecommendations(ticker) {
+  const url = `https://finnhub.io/api/v1/stock/recommendation?symbol=${ticker}&token=${FINNHUB_KEY}`
+  const res = await fetch(url)
+  const data = await res.json()
+  console.log('Finnhub recommendations status:', res.status)
+  // Return most recent recommendation
+  return data && data.length > 0 ? data[0] : null
+}
 
-  const ratios = ratiosData && ratiosData[0] ? ratiosData[0] : null
-  const profile = profileData && profileData[0] ? profileData[0] : null
-
-  return {
-    peRatio: ratios ? parseFloat(parseFloat(ratios.priceToEarningsRatioTTM).toFixed(2)) : null,
-    pbRatio: ratios ? parseFloat(parseFloat(ratios.priceToBookRatioTTM).toFixed(2)) : null,
-    bookValue: ratios ? parseFloat(parseFloat(ratios.bookValuePerShareTTM).toFixed(2)) : null,
-    dividendYield: ratios ? parseFloat(parseFloat(ratios.dividendYieldTTM * 100).toFixed(2)) : null,
-    sector: profile ? profile.sector : null,
-    industry: profile ? profile.industry : null,
-    marketCap: profile ? profile.marketCap : null
-  }
+// Summarize analyst recommendation
+function summarizeRating(rec) {
+  if (!rec) return null
+  const { strongBuy, buy, hold, sell, strongSell } = rec
+  const total = strongBuy + buy + hold + sell + strongSell
+  if (total === 0) return null
+  const bullish = strongBuy + buy
+  const bearish = sell + strongSell
+  if (strongBuy > buy && strongBuy > hold) return `Strong Buy (${strongBuy}/${total})`
+  if (bullish > hold && bullish > bearish) return `Buy (${bullish}/${total})`
+  if (hold >= bullish && hold >= bearish) return `Hold (${hold}/${total})`
+  if (bearish > bullish) return `Sell (${bearish}/${total})`
+  return `Hold (${hold}/${total})`
 }
 
 // Read all rows from Google Sheet
@@ -120,7 +121,7 @@ async function saveToSheet(token, stock) {
     stock.bookValue || '',
     stock.pbRatio || '',
     stock.sector || '',
-    stock.dividendYield ? stock.dividendYield + '%' : ''
+    stock.analystRating || ''
   ]
 
   const rows = await readSheet(token)
@@ -184,28 +185,37 @@ exports.handler = async function(event) {
 
     console.log('Looking up ticker:', ticker)
 
-    // Fetch both data sources in parallel
-    const [priceData, fundamentals] = await Promise.all([
-      fetchPriceData(ticker),
-      fetchFundamentals(ticker)
+    // Fetch all data in parallel
+    const [quote, metrics, profile, recommendation] = await Promise.all([
+      fetchQuote(ticker),
+      fetchMetrics(ticker),
+      fetchProfile(ticker),
+      fetchRecommendations(ticker)
     ])
 
-    if (!priceData) {
+    if (!quote || !quote.c) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Stock not found: ' + ticker }) }
     }
 
-    // Merge data
+    const price = quote.c
+    const bookValue = metrics.bookValuePerShareAnnual || null
+    const peRatio = metrics.peAnnual || metrics.peTTM || null
+    const pbRatio = metrics.pb || null
+
     const stock = {
-      ...priceData,
-      peRatio: fundamentals.peRatio,
-      pbRatio: fundamentals.pbRatio,
-      bookValue: fundamentals.bookValue,
-      dividendYield: fundamentals.dividendYield,
-      sector: fundamentals.sector,
-      industry: fundamentals.industry,
-      marketCap: fundamentals.marketCap,
-      sectorPE: null,
-      analystRating: null
+      ticker: ticker,
+      name: profile.name || ticker,
+      price: price ? parseFloat(price.toFixed(2)) : null,
+      week52High: metrics['52WeekHigh'] ? parseFloat(metrics['52WeekHigh'].toFixed(2)) : null,
+      week52Low: metrics['52WeekLow'] ? parseFloat(metrics['52WeekLow'].toFixed(2)) : null,
+      peRatio: peRatio ? parseFloat(peRatio.toFixed(2)) : null,
+      bookValue: bookValue ? parseFloat(bookValue.toFixed(2)) : null,
+      pbRatio: pbRatio ? parseFloat(pbRatio.toFixed(2)) : null,
+      sector: profile.finnhubIndustry || null,
+      analystRating: summarizeRating(recommendation),
+      change: quote.d ? parseFloat(quote.d.toFixed(2)) : null,
+      changePercent: quote.dp ? parseFloat(quote.dp.toFixed(2)) : null,
+      dividendYield: metrics.currentDividendYieldTTM || null
     }
 
     console.log('Stock data:', JSON.stringify(stock))
