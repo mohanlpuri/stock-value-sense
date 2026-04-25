@@ -4,238 +4,258 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StockValueSense</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #0f0f0f;
-      --surface: #1a1a1a;
-      --border: #2a2a2a;
-      --text: #f0f0f0;
-      --muted: #888;
-      --accent: #c9f542;
-      --green: #4ade80;
-      --yellow: #fbbf24;
-      --red: #f87171;
-      --green-bg: rgba(74, 222, 128, 0.1);
-      --yellow-bg: rgba(251, 191, 36, 0.1);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      min-height: 100vh;
-      padding: 2rem 1rem;
+      margin: 0;
+      padding: 0;
+      background: #f0f0f0;
+      font-family: sans-serif;
     }
 
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
+    .app {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 1.5rem 1.25rem;
+      background: white;
+      border: 3px solid #1a1a1a;
+      border-radius: 16px;
     }
 
-    header {
-      margin-bottom: 2.5rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 1.5rem;
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: #1a1a1a;
     }
 
-    .logo {
-      font-family: 'DM Serif Display', serif;
-      font-size: 2.2rem;
-      color: var(--accent);
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
+    .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin: 0 0 1.25rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 2px solid #e0e0e0;
     }
 
-    .tagline {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: 'DM Mono', monospace;
-    }
-
-    .search-bar {
+    .lookup-row {
       display: flex;
       gap: 10px;
-      margin-bottom: 2rem;
-      align-items: center;
+      margin-bottom: 1.25rem;
+      align-items: flex-end;
     }
 
-    .search-bar input {
-      flex: 1;
-      max-width: 300px;
-      padding: 12px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+    .lookup-row input {
+      padding: 10px 14px;
+      border: 2px solid #1a1a1a;
       border-radius: 8px;
-      color: var(--text);
-      font-size: 15px;
-      font-family: 'DM Mono', monospace;
+      font-size: 16px;
+      font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-
-    .search-bar input:focus {
-      border-color: var(--accent);
-    }
-
-    .search-bar input::placeholder {
-      color: var(--muted);
-      text-transform: none;
-      letter-spacing: 0;
+      width: 140px;
+      letter-spacing: 0.05em;
     }
 
     .btn {
-      padding: 12px 24px;
-      background: var(--accent);
-      color: #0f0f0f;
-      border: none;
+      padding: 10px 22px;
+      background: #1a1a1a;
+      color: white;
+      border: 2px solid #1a1a1a;
       border-radius: 8px;
       font-size: 14px;
       font-weight: 600;
-      font-family: 'DM Sans', sans-serif;
       cursor: pointer;
-      transition: opacity 0.2s;
+      transition: opacity 0.15s;
     }
 
-    .btn:hover { opacity: 0.85; }
+    .btn:hover    { opacity: 0.8; }
     .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
     .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 8px 16px;
+      background: white;
+      color: #1a1a1a;
+    }
+
+    #statusMsg {
       font-size: 13px;
+      color: #888;
+      margin-bottom: 1rem;
+      min-height: 18px;
     }
 
-    .btn-outline:hover {
-      border-color: var(--muted);
-      color: var(--text);
-      opacity: 1;
-    }
-
-    /* Current stock card */
+    /* ── Stock card ─────────────────────────────────────────── */
     .stock-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 2rem;
       display: none;
+      border: 2px solid #1a1a1a;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 1rem;
     }
-
-    .stock-card.visible { display: block; }
 
     .card-header {
+      background: #1a1a1a;
+      color: white;
+      padding: 14px 18px;
       display: flex;
       align-items: baseline;
       gap: 12px;
-      margin-bottom: 1.25rem;
-      padding-bottom: 1rem;
-      border-bottom: 1px solid var(--border);
     }
 
-    .card-ticker {
-      font-family: 'DM Serif Display', serif;
-      font-size: 2rem;
-      color: var(--accent);
-    }
-
-    .card-name {
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    .card-date {
-      margin-left: auto;
-      font-family: 'DM Mono', monospace;
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .card-ticker { font-size: 22px; font-weight: 700; }
+    .card-name   { font-size: 14px; color: #aaa; flex: 1; }
+    .card-date   { font-size: 12px; color: #888; }
 
     .metrics-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 12px;
+      gap: 0;
     }
 
     .metric {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px 14px;
+      padding: 14px 16px;
+      border-right: 1px solid #e8e8e8;
+      border-bottom: 1px solid #e8e8e8;
     }
 
+    .metric:nth-child(even) { background: #fafafa; }
+
     .metric-label {
-      font-size: 10px;
-      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      color: #888;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-      font-family: 'DM Mono', monospace;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
     }
 
     .metric-value {
       font-size: 18px;
+      font-weight: 700;
+      color: #1a1a1a;
+    }
+
+    .metric-value.green  { color: #2d7a2d; background: #eafaea; border-radius: 6px; padding: 2px 6px; display: inline-block; }
+    .metric-value.yellow { color: #8a6000; background: #fff8e0; border-radius: 6px; padding: 2px 6px; display: inline-block; }
+
+    /* ── Manual ratings section ─────────────────────────────── */
+    .manual-section {
+      display: none;
+      border: 2px solid #4a90d9;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 1rem;
+      background: #f5f9ff;
+    }
+
+    .manual-section h3 {
+      margin: 0 0 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #1a1a1a;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .manual-fields {
+      display: flex;
+      gap: 20px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .manual-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .manual-field label {
+      font-size: 11px;
       font-weight: 600;
-      color: var(--text);
+      color: #555;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    .metric.highlight-green {
-      border-color: var(--green);
-      background: var(--green-bg);
+    .manual-field input {
+      padding: 9px 12px;
+      border: 2px solid #4a90d9;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100px;
+      text-align: center;
     }
 
-    .metric.highlight-green .metric-value { color: var(--green); }
-
-    .metric.highlight-yellow {
-      border-color: var(--yellow);
-      background: var(--yellow-bg);
+    .manual-field .hint {
+      font-size: 10px;
+      color: #888;
     }
 
-    .metric.highlight-yellow .metric-value { color: var(--yellow); }
+    .manual-preview {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
 
-    /* Legend */
+    .manual-badge {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      background: #e8e8e8;
+      color: #555;
+    }
+
+    .manual-badge.green  { background: #eafaea; color: #2d7a2d; }
+    .manual-badge.yellow { background: #fff8e0; color: #8a6000; }
+
+    #saveMsg {
+      font-size: 12px;
+      color: #2d7a2d;
+      margin-top: 6px;
+      min-height: 16px;
+    }
+
+    /* ── Legend ─────────────────────────────────────────────── */
     .legend {
       display: flex;
       gap: 16px;
       margin-bottom: 1.5rem;
-      font-size: 12px;
-      color: var(--muted);
-      font-family: 'DM Mono', monospace;
+      flex-wrap: wrap;
     }
 
-    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #666;
+    }
+
     .legend-dot {
-      width: 8px; height: 8px;
+      width: 10px; height: 10px;
       border-radius: 50%;
     }
-    .legend-dot.green { background: var(--green); }
-    .legend-dot.yellow { background: var(--yellow); }
 
-    /* History table */
+    .legend-dot.green  { background: #2d7a2d; }
+    .legend-dot.yellow { background: #c8a000; }
+
+    /* ── History table ──────────────────────────────────────── */
     .history-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 1rem;
+      margin-bottom: 10px;
     }
 
     .history-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 1.3rem;
-      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a1a;
     }
 
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-    }
+    .table-wrap { overflow-x: auto; }
 
     table {
       width: 100%;
@@ -243,115 +263,71 @@
       font-size: 13px;
     }
 
-    thead {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-    }
-
     th {
-      padding: 10px 14px;
+      background: #1a1a1a;
+      color: white;
+      padding: 10px 12px;
       text-align: left;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-family: 'DM Mono', monospace;
+      font-size: 11px;
       white-space: nowrap;
     }
 
     td {
-      padding: 10px 14px;
-      border-bottom: 1px solid var(--border);
+      padding: 9px 12px;
+      border-bottom: 1px solid #e8e8e8;
       white-space: nowrap;
-      vertical-align: middle;
     }
 
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: var(--surface); }
+    tr:hover td { background: #f5f5f5; }
 
-    .td-ticker {
-      font-family: 'DM Mono', monospace;
-      font-weight: 500;
-      font-size: 14px;
-      color: var(--accent);
-    }
+    .empty-state { color: #aaa; text-align: center; padding: 20px; }
 
-    .td-date {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: var(--muted);
-    }
-
-    .cell-green {
-      color: var(--green);
-      font-weight: 600;
-    }
-
-    .cell-yellow {
-      color: var(--yellow);
-      font-weight: 600;
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 3rem;
-      color: var(--muted);
-      font-size: 14px;
-      font-family: 'DM Mono', monospace;
-    }
-
-    .status {
-      font-size: 13px;
-      color: var(--muted);
-      font-family: 'DM Mono', monospace;
-      padding: 8px 0;
-    }
-
-    .error {
-      color: var(--red);
-      font-size: 13px;
-      font-family: 'DM Mono', monospace;
-      padding: 8px 0;
-    }
-
-    .saved-badge {
-      display: inline-block;
-      background: var(--green-bg);
-      color: var(--green);
-      border: 1px solid var(--green);
-      border-radius: 4px;
-      font-size: 11px;
-      font-family: 'DM Mono', monospace;
-      padding: 2px 8px;
-      margin-left: 10px;
-    }
+    td.green  { color: #2d7a2d; font-weight: 700; background: #eafaea; }
+    td.yellow { color: #8a6000; font-weight: 700; background: #fff8e0; }
   </style>
 </head>
 <body>
+  <div class="app">
+    <h1>StockValueSense</h1>
+    <p class="subtitle">Enter a ticker to evaluate its value metrics</p>
 
-  <div class="container">
-
-    <header>
-      <div class="logo">StockValueSense</div>
-      <div class="tagline">// evaluate · track · decide</div>
-    </header>
-
-    <div class="search-bar">
-      <input type="text" id="tickerInput" placeholder="Enter ticker e.g. AAPL" maxlength="10">
+    <div class="lookup-row">
+      <input type="text" id="tickerInput" placeholder="e.g. AAPL" maxlength="10">
       <button class="btn" id="lookupBtn">Evaluate</button>
     </div>
 
     <div id="statusMsg"></div>
 
-    <!-- Current stock card -->
+    <!-- Stock metrics card -->
     <div class="stock-card" id="stockCard">
       <div class="card-header">
         <div class="card-ticker" id="cardTicker"></div>
-        <div class="card-name" id="cardName"></div>
-        <div class="card-date" id="cardDate"></div>
+        <div class="card-name"   id="cardName"></div>
+        <div class="card-date"   id="cardDate"></div>
       </div>
       <div class="metrics-grid" id="metricsGrid"></div>
+    </div>
+
+    <!-- Manual ratings section — shown after Finnhub data loads -->
+    <div class="manual-section" id="manualSection">
+      <h3>📝 Add Your Own Ratings (optional)</h3>
+      <div class="manual-fields">
+        <div class="manual-field">
+          <label>Tip Ranks Rating</label>
+          <input type="number" id="tipRanksInput" min="1" max="10" step="0.1" placeholder="1–10">
+          <span class="hint">Green if ≥ 8</span>
+        </div>
+        <div class="manual-field">
+          <label>Morningstar Rating</label>
+          <input type="number" id="morningstarInput" min="1" max="5" step="1" placeholder="1–5 ★">
+          <span class="hint">Green if ≥ 4 stars</span>
+        </div>
+        <div>
+          <button class="btn" id="saveRatingsBtn">Save Ratings</button>
+        </div>
+      </div>
+      <div class="manual-preview" id="manualPreview"></div>
+      <div id="saveMsg"></div>
     </div>
 
     <!-- Legend -->
@@ -360,7 +336,7 @@
       <div class="legend-item"><div class="legend-dot yellow"></div> Caution — high valuation</div>
     </div>
 
-    <!-- History -->
+    <!-- History table -->
     <div class="history-header">
       <div class="history-title">Evaluation History</div>
       <button class="btn btn-outline" id="refreshBtn">↻ Refresh</button>
@@ -378,138 +354,221 @@
             <th>P/E</th>
             <th>Book Value</th>
             <th>P/B</th>
-            <th>Sector P/E</th>
             <th>Analyst Rating</th>
+            <th>Div Yield</th>
+            <th>Tip Ranks</th>
+            <th>Morningstar ★</th>
           </tr>
         </thead>
         <tbody id="historyBody">
-          <tr><td colspan="10" class="empty-state">No evaluations yet. Enter a ticker above to get started.</td></tr>
+          <tr><td colspan="12" class="empty-state">No evaluations yet.</td></tr>
         </tbody>
       </table>
     </div>
-
   </div>
 
   <script>
+    let currentTicker = null
 
-    function today() {
-      return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    // ── Formatting helpers ─────────────────────────────────────────────────────
+    function fmt(v, digits=2) {
+      return v != null ? parseFloat(v).toFixed(digits) : 'N/A'
     }
 
-    function fmt(val, prefix='', suffix='', decimals=2) {
-      if (val === null || val === undefined || val === '') return 'N/A'
-      return prefix + parseFloat(val).toFixed(decimals) + suffix
+    function fmtPE(pe) {
+      if (pe == null) return '<span style="color:#aaa">N/A</span>'
+      const v = parseFloat(pe)
+      if (v < 20)  return `<span class="metric-value green">${ v.toFixed(1) }x</span>`
+      if (v > 40)  return `<span class="metric-value yellow">${ v.toFixed(1) }x</span>`
+      return `<span class="metric-value">${ v.toFixed(1) }x</span>`
     }
 
-    function peClass(pe) {
-      if (!pe) return ''
-      if (pe < 20) return 'cell-green'
-      if (pe > 40) return 'cell-yellow'
-      return ''
+    function fmtPB(pb) {
+      if (pb == null) return '<span style="color:#aaa">N/A</span>'
+      const v = parseFloat(pb)
+      if (v < 3)   return `<span class="metric-value green">${ v.toFixed(2) }x</span>`
+      if (v > 10)  return `<span class="metric-value yellow">${ v.toFixed(2) }x</span>`
+      return `<span class="metric-value">${ v.toFixed(2) }x</span>`
     }
 
-    function pbClass(pb) {
-      if (!pb) return ''
-      if (pb < 3) return 'cell-green'
-      if (pb > 10) return 'cell-yellow'
-      return ''
+    function fmtPrice52(price, high) {
+      if (!price || !high) return '<span style="color:#aaa">N/A</span>'
+      const pct = (price / high) * 100
+      if (pct <= 60) return `<span class="metric-value green">$${ parseFloat(price).toFixed(2) }</span>`
+      return `<span class="metric-value">$${ parseFloat(price).toFixed(2) }</span>`
     }
 
-    function priceClass(price, high52) {
-      if (!price || !high52) return ''
-      if (price < high52 * 0.6) return 'cell-green'
-      return ''
+    function fmtAnalyst(rating) {
+      if (!rating) return '<span style="color:#aaa">N/A</span>'
+      const r = String(rating)
+      const color = r.includes('Strong Buy') || r.includes('Buy') ? '#2d7a2d'
+                  : r.includes('Sell')                            ? '#a32d2d'
+                  : '#8a6000'
+      return `<span style="color:${color}; font-weight:600">${r}</span>`
     }
 
-    function metricHighlight(type, value) {
-      if (type === 'pe') {
-        if (value && value < 20) return 'highlight-green'
-        if (value && value > 40) return 'highlight-yellow'
+    function fmtDivYield(dy) {
+      if (dy == null || dy === '') return 'N/A'
+      return String(dy).includes('%') ? dy : (parseFloat(dy) * 100).toFixed(2) + '%'
+    }
+
+    // ── Tip Ranks & Morningstar preview ───────────────────────────────────────
+    function updateManualPreview() {
+      const tr  = parseFloat(document.getElementById('tipRanksInput').value)
+      const ms  = parseInt(document.getElementById('morningstarInput').value)
+      const preview = document.getElementById('manualPreview')
+      let html = ''
+
+      if (!isNaN(tr)) {
+        const cls = tr >= 8 ? 'green' : (tr >= 5 ? '' : 'yellow')
+        html += `<div class="manual-badge ${cls}">Tip Ranks: ${tr} ${tr >= 8 ? '✅' : ''}</div>`
       }
-      if (type === 'pb') {
-        if (value && value < 3) return 'highlight-green'
-        if (value && value > 10) return 'highlight-yellow'
+
+      if (!isNaN(ms) && ms >= 1 && ms <= 5) {
+        const stars = '★'.repeat(ms) + '☆'.repeat(5 - ms)
+        const cls   = ms >= 4 ? 'green' : ''
+        html += `<div class="manual-badge ${cls}">Morningstar: ${stars} ${ms >= 4 ? '✅' : ''}</div>`
       }
-      if (type === 'price52') {
-        if (value) return 'highlight-green'
-      }
-      return ''
+
+      preview.innerHTML = html
     }
 
-    async function lookup() {
+    document.getElementById('tipRanksInput').addEventListener('input', updateManualPreview)
+    document.getElementById('morningstarInput').addEventListener('input', updateManualPreview)
+
+    // ── Render stock card ──────────────────────────────────────────────────────
+    function renderCard(stock) {
+      document.getElementById('cardTicker').textContent = stock.ticker
+      document.getElementById('cardName').textContent   = stock.name || ''
+      document.getElementById('cardDate').textContent   = new Date().toLocaleDateString('en-US')
+      document.getElementById('stockCard').style.display = 'block'
+
+      const grid = document.getElementById('metricsGrid')
+      grid.innerHTML = `
+        <div class="metric">
+          <div class="metric-label">Price</div>
+          <div>${ fmtPrice52(stock.price, stock.week52High) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">52W High</div>
+          <div class="metric-value">$${ fmt(stock.week52High) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">52W Low</div>
+          <div class="metric-value">$${ fmt(stock.week52Low) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">P/E Ratio</div>
+          <div>${ fmtPE(stock.peRatio) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Book Value</div>
+          <div class="metric-value">$${ fmt(stock.bookValue) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">P/B Ratio</div>
+          <div>${ fmtPB(stock.pbRatio) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Analyst Rating</div>
+          <div>${ fmtAnalyst(stock.analystRating) }</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Div Yield</div>
+          <div class="metric-value">${ stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : 'N/A' }</div>
+        </div>
+      `
+    }
+
+    // ── Lookup stock ──────────────────────────────────────────────────────────
+    document.getElementById('lookupBtn').addEventListener('click', async () => {
       const ticker = document.getElementById('tickerInput').value.trim().toUpperCase()
       if (!ticker) return
 
+      currentTicker = ticker
       const btn = document.getElementById('lookupBtn')
-      const status = document.getElementById('statusMsg')
+      const msg = document.getElementById('statusMsg')
+
       btn.disabled = true
-      btn.textContent = 'Evaluating...'
-      status.innerHTML = '<div class="status">Fetching data for ' + ticker + '...</div>'
+      msg.textContent = 'Fetching data...'
+      document.getElementById('stockCard').style.display    = 'none'
+      document.getElementById('manualSection').style.display = 'none'
+      document.getElementById('saveMsg').textContent = ''
+      document.getElementById('tipRanksInput').value    = ''
+      document.getElementById('morningstarInput').value = ''
+      document.getElementById('manualPreview').innerHTML = ''
 
       try {
-        const res = await fetch('/.netlify/functions/stock-lookup', {
+        const res  = await fetch('/.netlify/functions/stock-lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ticker })
         })
         const data = await res.json()
 
-        if (data.error) {
-          status.innerHTML = '<div class="error">Error: ' + data.error + '</div>'
+        if (!res.ok || data.error) {
+          msg.textContent = '❌ ' + (data.error || 'Error fetching stock')
           btn.disabled = false
-          btn.textContent = 'Evaluate'
           return
         }
 
-        const s = data.stock
-        const pb = (s.price && s.bookValue) ? (s.price / s.bookValue) : null
-        const below60pct = s.price && s.week52High && s.price < s.week52High * 0.6
-
-        // Show card
-        document.getElementById('cardTicker').textContent = s.ticker
-        document.getElementById('cardName').textContent = s.name || ''
-        document.getElementById('cardDate').textContent = today()
-
-        const metrics = [
-          { label: 'Price', value: fmt(s.price, '$'), type: 'price', raw: s.price },
-          { label: 'P/E Ratio', value: fmt(s.peRatio, '', 'x'), type: 'pe', raw: s.peRatio },
-          { label: 'Book Value', value: fmt(s.bookValue, '$'), type: null },
-          { label: 'P/B Ratio', value: fmt(pb, '', 'x'), type: 'pb', raw: pb },
-          { label: '52W High', value: fmt(s.week52High, '$'), type: null },
-          { label: '52W Low', value: fmt(s.week52Low, '$'), type: null },
-          { label: 'Price vs 52W High', value: below60pct ? '< 40% of High ✓' : fmt(s.price, '$'), type: 'price52', raw: below60pct },
-          { label: 'Sector P/E', value: fmt(s.sectorPE, '', 'x'), type: null },
-          { label: 'Analyst Rating', value: s.analystRating || 'N/A', type: null },
-        ]
-
-        document.getElementById('metricsGrid').innerHTML = metrics.map(m => {
-          const cls = m.type === 'pe' ? metricHighlight('pe', m.raw)
-                    : m.type === 'pb' ? metricHighlight('pb', m.raw)
-                    : m.type === 'price52' ? metricHighlight('price52', m.raw)
-                    : ''
-          return '<div class="metric ' + cls + '">' +
-            '<div class="metric-label">' + m.label + '</div>' +
-            '<div class="metric-value">' + m.value + '</div>' +
-          '</div>'
-        }).join('')
-
-        document.getElementById('stockCard').classList.add('visible')
-        status.innerHTML = '<div class="status">Saved to Google Sheet <span class="saved-badge">✓ Saved</span></div>'
-
-        // Refresh history
+        renderCard(data.stock)
+        document.getElementById('manualSection').style.display = 'block'
+        msg.textContent = '✅ Data fetched and saved to sheet.'
         loadHistory()
 
       } catch(e) {
-        status.innerHTML = '<div class="error">Something went wrong: ' + e.message + '</div>'
+        msg.textContent = '❌ Network error: ' + e.message
       }
 
       btn.disabled = false
-      btn.textContent = 'Evaluate'
-    }
+    })
 
-    async function loadHistory() {
+    // ── Save manual ratings ────────────────────────────────────────────────────
+    document.getElementById('saveRatingsBtn').addEventListener('click', async () => {
+      if (!currentTicker) return
+
+      const tipRanks   = document.getElementById('tipRanksInput').value.trim()
+      const morningstar = document.getElementById('morningstarInput').value.trim()
+
+      const saveBtn = document.getElementById('saveRatingsBtn')
+      const saveMsg = document.getElementById('saveMsg')
+      saveBtn.disabled  = true
+      saveMsg.textContent = 'Saving...'
+
       try {
         const res = await fetch('/.netlify/functions/stock-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action:      'saveRatings',
+            ticker:      currentTicker,
+            tipRanks:    tipRanks    !== '' ? parseFloat(tipRanks)    : null,
+            morningstar: morningstar !== '' ? parseInt(morningstar)   : null
+          })
+        })
+        const data = await res.json()
+
+        if (!res.ok || data.error) {
+          saveMsg.style.color = '#a32d2d'
+          saveMsg.textContent = '❌ ' + (data.error || 'Error saving ratings')
+        } else {
+          saveMsg.style.color = '#2d7a2d'
+          saveMsg.textContent = '✅ Ratings saved!'
+          loadHistory()
+        }
+      } catch(e) {
+        saveMsg.style.color = '#a32d2d'
+        saveMsg.textContent = '❌ Network error: ' + e.message
+      }
+
+      saveBtn.disabled = false
+    })
+
+    // ── Load history ──────────────────────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const res  = await fetch('/.netlify/functions/stock-lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'history' })
@@ -517,61 +576,55 @@
         const data = await res.json()
         const rows = data.rows || []
 
-        if (rows.length === 0) {
-          document.getElementById('historyBody').innerHTML =
-            '<tr><td colspan="10" class="empty-state">No evaluations yet.</td></tr>'
+        const tbody = document.getElementById('historyBody')
+        // Skip header row (row 0) if present
+        const dataRows = rows.filter((r, i) => i > 0 && r[1] && r[1] !== 'Ticker')
+
+        if (dataRows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No evaluations yet.</td></tr>'
           return
         }
 
-        // Skip header row
-        const dataRows = rows.slice(1)
+        tbody.innerHTML = dataRows.reverse().map(r => {
+          // Columns: 0=Date,1=Ticker,2=Price,3=52WH,4=52WL,5=PE,6=BV,7=PB,8=Analyst,9=DivYield,10=TipRanks,11=Morningstar
+          const pe   = parseFloat(r[5])
+          const pb   = parseFloat(r[7])
+          const tr   = parseFloat(r[10])
+          const ms   = parseInt(r[11])
+          const pePct = isNaN(pe) ? '' : pe < 20 ? 'green' : pe > 40 ? 'yellow' : ''
+          const pbPct = isNaN(pb) ? '' : pb < 3  ? 'green' : pb > 10 ? 'yellow' : ''
+          const trCls = isNaN(tr) ? '' : tr >= 8 ? 'green' : ''
+          const msCls = isNaN(ms) ? '' : ms >= 4 ? 'green' : ''
+          const msStars = !isNaN(ms) && ms >= 1 ? '★'.repeat(ms) + '☆'.repeat(5 - ms) : (r[11] || '')
 
-        document.getElementById('historyBody').innerHTML = dataRows.map(row => {
-          const date    = row[0] || ''
-          const ticker  = row[1] || ''
-          const price   = row[2] || ''
-          const high52  = row[3] || ''
-          const low52   = row[4] || ''
-          const pe      = row[5] || ''
-          const bv      = row[6] || ''
-          const pb      = row[7] || ''
-          const spe     = row[8] || ''
-          const analyst = row[9] || ''
-
-          const peNum = parseFloat(pe)
-          const pbNum = parseFloat(pb)
-          const priceNum = parseFloat(price)
-          const high52Num = parseFloat(high52)
-
-          return '<tr>' +
-            '<td class="td-date">' + date + '</td>' +
-            '<td class="td-ticker">' + ticker + '</td>' +
-            '<td>$' + price + '</td>' +
-            '<td>' + (high52 ? '$' + high52 : 'N/A') + '</td>' +
-            '<td>' + (low52 ? '$' + low52 : 'N/A') + '</td>' +
-            '<td class="' + peClass(peNum) + '">' + (pe ? pe + 'x' : 'N/A') + '</td>' +
-            '<td>' + (bv ? '$' + bv : 'N/A') + '</td>' +
-            '<td class="' + pbClass(pbNum) + '">' + (pb ? pb + 'x' : 'N/A') + '</td>' +
-            '<td>' + (spe ? spe + 'x' : 'N/A') + '</td>' +
-            '<td>' + analyst + '</td>' +
-          '</tr>'
+          return `<tr>
+            <td>${r[0]  || ''}</td>
+            <td><strong>${r[1] || ''}</strong></td>
+            <td>$${r[2] || ''}</td>
+            <td>${r[3]  || ''}</td>
+            <td>${r[4]  || ''}</td>
+            <td class="${pePct}">${r[5] || ''}</td>
+            <td>${r[6]  || ''}</td>
+            <td class="${pbPct}">${r[7] || ''}</td>
+            <td>${r[8]  || ''}</td>
+            <td>${r[9]  || ''}</td>
+            <td class="${trCls}">${r[10] || ''}</td>
+            <td class="${msCls}">${msStars}</td>
+          </tr>`
         }).join('')
 
       } catch(e) {
-        console.error('History load failed:', e)
+        console.error('History load error:', e)
       }
     }
 
-    document.getElementById('lookupBtn').addEventListener('click', lookup)
     document.getElementById('refreshBtn').addEventListener('click', loadHistory)
-    document.getElementById('tickerInput').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') lookup()
+    document.getElementById('tickerInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('lookupBtn').click()
     })
 
-    // Load history on page load
+    // Load history on page open
     loadHistory()
-
   </script>
-
 </body>
 </html>
