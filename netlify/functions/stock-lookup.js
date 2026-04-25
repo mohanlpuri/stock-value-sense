@@ -30,6 +30,16 @@ async function getAccessToken() {
   return data.access_token
 }
 
+// ─── Get the real sheetId (gid) of Sheet1 ────────────────────────────────────
+// The sheetId in batchUpdate is NOT always 0 — fetch it from the spreadsheet metadata
+async function getSheetId(token) {
+  const url  = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`
+  const res  = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+  const data = await res.json()
+  // Return the sheetId of the first sheet (Sheet1)
+  return data.sheets?.[0]?.properties?.sheetId ?? 0
+}
+
 // ─── Read all rows from Google Sheet ──────────────────────────────────────────
 async function readSheet(token) {
   const url  = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:M`
@@ -38,9 +48,91 @@ async function readSheet(token) {
   return data.values || []
 }
 
+// ─── Color helpers ─────────────────────────────────────────────────────────────
+const GREEN  = { red: 0.78, green: 0.93, blue: 0.78 }  // soft green
+const YELLOW = { red: 1.00, green: 0.95, blue: 0.70 }  // soft yellow
+const NONE   = { red: 1.00, green: 1.00, blue: 1.00 }  // white (clear)
+
+function makeColorRequest(sheetId, rowIndex, colIndex, color) {
+  return {
+    repeatCell: {
+      range: {
+        sheetId:          sheetId,
+        startRowIndex:    rowIndex,      // 0-based
+        endRowIndex:      rowIndex + 1,
+        startColumnIndex: colIndex,      // 0-based: A=0 B=1 C=2 D=3 E=4 F=5 G=6 H=7 I=8 J=9 K=10 L=11 M=12
+        endColumnIndex:   colIndex + 1
+      },
+      cell: {
+        userEnteredFormat: {
+          backgroundColor: color
+        }
+      },
+      fields: 'userEnteredFormat.backgroundColor'
+    }
+  }
+}
+
+// ─── Apply cell highlighting via batchUpdate ───────────────────────────────────
+async function applyHighlighting(token, sheetId, rowIndex, stock) {
+  const requests = []
+
+  // F (col 5) — P/E ratio
+  if (stock.peRatio != null && stock.peRatio !== '') {
+    const pe    = parseFloat(stock.peRatio)
+    if (!isNaN(pe)) {
+      const color = pe < 20 ? GREEN : pe > 40 ? YELLOW : NONE
+      requests.push(makeColorRequest(sheetId, rowIndex, 5, color))
+    }
+  }
+
+  // H (col 7) — P/B ratio
+  if (stock.pbRatio != null && stock.pbRatio !== '') {
+    const pb    = parseFloat(stock.pbRatio)
+    if (!isNaN(pb)) {
+      const color = pb < 3 ? GREEN : pb > 10 ? YELLOW : NONE
+      requests.push(makeColorRequest(sheetId, rowIndex, 7, color))
+    }
+  }
+
+  // K (col 10) — Tip Ranks
+  if (stock.tipRanks != null && stock.tipRanks !== '') {
+    const tr    = parseFloat(stock.tipRanks)
+    if (!isNaN(tr)) {
+      const color = tr >= 8 ? GREEN : NONE
+      requests.push(makeColorRequest(sheetId, rowIndex, 10, color))
+    }
+  }
+
+  // L (col 11) — Morningstar
+  if (stock.morningstar != null && stock.morningstar !== '') {
+    const ms    = parseInt(stock.morningstar)
+    if (!isNaN(ms)) {
+      const color = ms >= 4 ? GREEN : NONE
+      requests.push(makeColorRequest(sheetId, rowIndex, 11, color))
+    }
+  }
+
+  if (requests.length === 0) {
+    console.log('No highlight requests to apply')
+    return
+  }
+
+  console.log(`Applying ${requests.length} highlights to sheetId=${sheetId} rowIndex=${rowIndex}`)
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`
+  const res  = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests })
+  })
+  const result = await res.json()
+  console.log('batchUpdate result:', JSON.stringify(result).slice(0, 300))
+}
+
 // ─── Save / update row in Google Sheet ────────────────────────────────────────
-// Columns: A=Date B=Ticker C=Price D=52WH E=52WL F=PE G=BV H=PB I=Analyst J=DivYield K=TipRanks L=Morningstar M=AI Summary
-async function saveToSheet(token, stock) {
+// Columns: A=Date B=Ticker C=Price D=52WH E=52WL F=PE G=BV H=PB I=Analyst J=DivYield K=TipRanks L=Morningstar M=AISummary
+async function saveToSheet(token, sheetId, stock) {
   const date = new Date().toLocaleDateString('en-US')
   const row  = [
     date,
@@ -52,31 +144,49 @@ async function saveToSheet(token, stock) {
     stock.bookValue     != null ? stock.bookValue.toFixed(2)  : '',
     stock.pbRatio       != null ? stock.pbRatio.toFixed(2)    : '',
     stock.analystRating != null ? stock.analystRating         : '',
-    // FIXED: Finnhub already returns dividend yield as a percentage — no * 100
     stock.dividendYield != null ? stock.dividendYield.toFixed(2) + '%' : '',
-    stock.tipRanks      != null ? stock.tipRanks              : '',
-    stock.morningstar   != null ? stock.morningstar           : '',
-    stock.aiSummary     != null ? stock.aiSummary             : ''
+    '',   // Tip Ranks — filled in via saveRatings
+    '',   // Morningstar — filled in via saveRatings
+    ''    // AI Summary — filled in via saveAISummary
   ]
 
   const existing    = await readSheet(token)
-  const existingRow = existing.findIndex((r, i) => i > 0 && r[1] === stock.ticker)
+  const existingIdx = existing.findIndex((r, i) => i > 0 && r[1] === stock.ticker)
 
-  let url, method
-  if (existingRow > 0) {
-    const rowNum = existingRow + 1
-    url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A${rowNum}:M${rowNum}?valueInputOption=RAW`
-    method = 'PUT'
+  let rowIndex  // 0-based row index for highlighting
+
+  if (existingIdx > 0) {
+    // Row exists — update it (preserve existing Tip Ranks, Morningstar, AI Summary)
+    const current = existing[existingIdx]
+    row[10] = current[10] || ''
+    row[11] = current[11] || ''
+    row[12] = current[12] || ''
+
+    rowIndex     = existingIdx   // 0-based (row 0 = header, so existingIdx is correct)
+    const rowNum = existingIdx + 1
+    const url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A${rowNum}:M${rowNum}?valueInputOption=RAW`
+    await fetch(url, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    })
+    console.log(`Updated row ${rowNum} (0-based index: ${rowIndex}) for ${stock.ticker}`)
+
   } else {
-    url    = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:M:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
-    method = 'POST'
+    // New row — append
+    // rowIndex = number of existing rows (header + data rows)
+    rowIndex  = existing.length
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Sheet1!A:M:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [row] })
+    })
+    console.log(`Appended new row at 0-based index: ${rowIndex} for ${stock.ticker}`)
   }
 
-  await fetch(url, {
-    method,
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [row] })
-  })
+  // Apply highlighting for P/E and P/B
+  await applyHighlighting(token, sheetId, rowIndex, stock)
 }
 
 // ─── Fetch stock data from Finnhub ────────────────────────────────────────────
@@ -180,8 +290,11 @@ exports.handler = async function(event) {
   }
 
   try {
-    const body  = JSON.parse(event.body)
-    const token = await getAccessToken()
+    const body    = JSON.parse(event.body)
+    const token   = await getAccessToken()
+    const sheetId = await getSheetId(token)   // fetch real sheetId every time
+
+    console.log('Real sheetId:', sheetId)
 
     // ── History read ──────────────────────────────────────────────────────────
     if (body.action === 'history') {
@@ -189,18 +302,18 @@ exports.handler = async function(event) {
       return { statusCode: 200, headers, body: JSON.stringify({ rows }) }
     }
 
-    // ── Save manual ratings (Tip Ranks + Morningstar) ─────────────────────────
+    // ── Save manual ratings (Tip Ranks + Morningstar) + re-highlight ──────────
     if (body.action === 'saveRatings') {
       const ticker      = (body.ticker || '').trim().toUpperCase()
       const existing    = await readSheet(token)
-      const existingRow = existing.findIndex((r, i) => i > 0 && r[1] === ticker)
+      const existingIdx = existing.findIndex((r, i) => i > 0 && r[1] === ticker)
 
-      if (existingRow < 1) {
+      if (existingIdx < 1) {
         return { statusCode: 404, headers, body: JSON.stringify({ error: 'Ticker not found in sheet. Evaluate first.' }) }
       }
 
-      const rowNum  = existingRow + 1
-      const current = existing[existingRow]
+      const rowNum  = existingIdx + 1
+      const current = existing[existingIdx]
       while (current.length < 13) current.push('')
       current[10] = body.tipRanks    != null ? String(body.tipRanks)    : (current[10] || '')
       current[11] = body.morningstar != null ? String(body.morningstar) : (current[11] || '')
@@ -213,6 +326,15 @@ exports.handler = async function(event) {
           body: JSON.stringify({ values: [current] })
         }
       )
+
+      // Re-apply all highlights for this row including new Tip Ranks + Morningstar
+      await applyHighlighting(token, sheetId, existingIdx, {
+        peRatio:    current[5],
+        pbRatio:    current[7],
+        tipRanks:   current[10],
+        morningstar: current[11]
+      })
+
       return { statusCode: 200, headers, body: JSON.stringify({ ok: true }) }
     }
 
@@ -220,14 +342,14 @@ exports.handler = async function(event) {
     if (body.action === 'saveAISummary') {
       const ticker      = (body.ticker || '').trim().toUpperCase()
       const existing    = await readSheet(token)
-      const existingRow = existing.findIndex((r, i) => i > 0 && r[1] === ticker)
+      const existingIdx = existing.findIndex((r, i) => i > 0 && r[1] === ticker)
 
-      if (existingRow < 1) {
+      if (existingIdx < 1) {
         return { statusCode: 404, headers, body: JSON.stringify({ error: 'Ticker not found in sheet. Evaluate first.' }) }
       }
 
-      const rowNum  = existingRow + 1
-      const current = existing[existingRow]
+      const rowNum  = existingIdx + 1
+      const current = existing[existingIdx]
       while (current.length < 13) current.push('')
       current[12] = body.aiSummary || ''
 
@@ -244,8 +366,7 @@ exports.handler = async function(event) {
 
     // ── AI summary generation ─────────────────────────────────────────────────
     if (body.action === 'aiSummary') {
-      const stock   = body.stock
-      const summary = await generateAISummary(stock)
+      const summary = await generateAISummary(body.stock)
       return { statusCode: 200, headers, body: JSON.stringify({ summary }) }
     }
 
@@ -260,7 +381,7 @@ exports.handler = async function(event) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Stock not found: ' + ticker }) }
     }
 
-    await saveToSheet(token, stock)
+    await saveToSheet(token, sheetId, stock)
     return { statusCode: 200, headers, body: JSON.stringify({ stock }) }
 
   } catch(e) {

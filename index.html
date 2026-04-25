@@ -123,13 +123,19 @@
 
     .metric:nth-child(even) { background: #fafafa; }
 
+    /* 52W range bar spans full width */
+    .metric.full-width {
+      grid-column: 1 / -1;
+      background: #fafafa;
+    }
+
     .metric-label {
       font-size: 11px;
       font-weight: 600;
       color: #888;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
 
     .metric-value {
@@ -141,7 +147,68 @@
     .metric-value.green  { color: #2d7a2d; background: #eafaea; border-radius: 6px; padding: 2px 6px; display: inline-block; }
     .metric-value.yellow { color: #8a6000; background: #fff8e0; border-radius: 6px; padding: 2px 6px; display: inline-block; }
 
-    /* ── AI Summary trigger ──────────────────────────────────── */
+    /* ── 52W Range bar (inline in card) ─────────────────────── */
+    .range-bar-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .range-end-label {
+      font-size: 11px;
+      color: #888;
+      white-space: nowrap;
+      min-width: 52px;
+    }
+
+    .range-end-label.right { text-align: right; }
+
+    .range-track {
+      flex: 1;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .range-fill {
+      position: absolute;
+      left: 0;
+      height: 100%;
+      background: #4a90d9;
+      border-radius: 4px;
+    }
+
+    .range-dot {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #1a1a1a;
+      border: 2px solid white;
+      border-radius: 50%;
+      top: -3px;
+      transform: translateX(-50%);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    .range-price-label {
+      position: absolute;
+      top: -22px;
+      transform: translateX(-50%);
+      font-size: 11px;
+      font-weight: 700;
+      color: #1a1a1a;
+      white-space: nowrap;
+    }
+
+    .range-track-wrap {
+      flex: 1;
+      padding-top: 24px;  /* space for price label above */
+      position: relative;
+    }
+
+    /* ── AI Summary ─────────────────────────────────────────── */
     .ai-trigger {
       display: none;
       margin-bottom: 1rem;
@@ -163,14 +230,7 @@
       margin-bottom: 10px;
     }
 
-    .ai-summary-label {
-      font-size: 12px;
-      font-weight: 700;
-      color: #5b3fc8;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
+    .ai-summary-label  { font-size: 12px; font-weight: 700; color: #5b3fc8; text-transform: uppercase; letter-spacing: 0.05em; }
     .ai-summary-ticker { font-size: 12px; color: #aaa; }
 
     .ai-summary-text {
@@ -179,13 +239,9 @@
       color: #333;
     }
 
-    .ai-loading {
-      font-size: 13px;
-      color: #5b3fc8;
-      font-style: italic;
-    }
+    .ai-loading { font-size: 13px; color: #5b3fc8; font-style: italic; }
 
-    /* ── Manual ratings section ─────────────────────────────── */
+    /* ── Manual ratings ─────────────────────────────────────── */
     .manual-section {
       display: none;
       border: 2px solid #4a90d9;
@@ -211,11 +267,7 @@
       flex-wrap: wrap;
     }
 
-    .manual-field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
+    .manual-field { display: flex; flex-direction: column; gap: 4px; }
 
     .manual-field label {
       font-size: 11px;
@@ -257,12 +309,7 @@
     .manual-badge.green  { background: #eafaea; color: #2d7a2d; }
     .manual-badge.yellow { background: #fff8e0; color: #8a6000; }
 
-    #saveMsg {
-      font-size: 12px;
-      color: #2d7a2d;
-      margin-top: 6px;
-      min-height: 16px;
-    }
+    #saveMsg { font-size: 12px; color: #2d7a2d; margin-top: 6px; min-height: 16px; }
 
     /* ── Legend ─────────────────────────────────────────────── */
     .legend {
@@ -272,15 +319,8 @@
       flex-wrap: wrap;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: #666;
-    }
-
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666; }
+    .legend-dot  { width: 10px; height: 10px; border-radius: 50%; }
     .legend-dot.green  { background: #2d7a2d; }
     .legend-dot.yellow { background: #c8a000; }
     .legend-dot.purple { background: #5b3fc8; }
@@ -297,11 +337,7 @@
 
     .table-wrap { overflow-x: auto; }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
 
     th {
       background: #1a1a1a;
@@ -457,13 +493,6 @@
       return `<span class="metric-value">${v.toFixed(2)}x</span>`
     }
 
-    function fmtPrice52(price, high) {
-      if (!price || !high) return '<span style="color:#aaa">N/A</span>'
-      const pct = (price / high) * 100
-      if (pct <= 60) return `<span class="metric-value green">$${parseFloat(price).toFixed(2)}</span>`
-      return `<span class="metric-value">$${parseFloat(price).toFixed(2)}</span>`
-    }
-
     function fmtAnalyst(rating) {
       if (!rating) return '<span style="color:#aaa">N/A</span>'
       const r     = String(rating)
@@ -473,6 +502,70 @@
       return `<span style="color:${color}; font-weight:600">${r}</span>`
     }
 
+    // ── 52W Range bar ──────────────────────────────────────────────────────────
+    function rangeBar52W(price, low, high) {
+      if (!price || !low || !high || high <= low) {
+        return '<span style="color:#aaa;font-size:13px">N/A</span>'
+      }
+      const pct      = Math.max(0, Math.min(100, ((price - low) / (high - low)) * 100))
+      const dotColor = pct <= 40 ? '#2d7a2d' : '#1a1a1a'  // green dot if in lower 40% of range
+      return `
+        <div class="range-bar-wrap">
+          <div class="range-end-label">$${parseFloat(low).toFixed(2)}<br><span style="font-size:10px;color:#aaa">52W Low</span></div>
+          <div class="range-track-wrap">
+            <div class="range-track">
+              <div class="range-fill" style="width:${pct}%"></div>
+              <div class="range-dot" style="left:${pct}%;background:${dotColor}">
+                <div class="range-price-label">$${parseFloat(price).toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+          <div class="range-end-label right">$${parseFloat(high).toFixed(2)}<br><span style="font-size:10px;color:#aaa">52W High</span></div>
+        </div>
+      `
+    }
+
+    // ── Render stock card ──────────────────────────────────────────────────────
+    function renderCard(stock) {
+      document.getElementById('cardTicker').textContent = stock.ticker
+      document.getElementById('cardName').textContent   = stock.name || ''
+      document.getElementById('cardDate').textContent   = new Date().toLocaleDateString('en-US')
+      document.getElementById('stockCard').style.display = 'block'
+
+      const grid = document.getElementById('metricsGrid')
+      grid.innerHTML = `
+        <div class="metric">
+          <div class="metric-label">Price</div>
+          <div class="metric-value">$${fmt(stock.price)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">P/E Ratio</div>
+          <div>${fmtPE(stock.peRatio)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Book Value / Share</div>
+          <div class="metric-value">$${fmt(stock.bookValue)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">P/B Ratio</div>
+          <div>${fmtPB(stock.pbRatio)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Analyst Rating</div>
+          <div style="font-size:13px;font-weight:600;margin-top:4px">${fmtAnalyst(stock.analystRating)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Div Yield</div>
+          <div class="metric-value">${stock.dividendYield != null ? stock.dividendYield.toFixed(2) + '%' : 'N/A'}</div>
+        </div>
+        <div class="metric full-width">
+          <div class="metric-label">52-Week Price Range</div>
+          ${rangeBar52W(stock.price, stock.week52Low, stock.week52High)}
+        </div>
+      `
+    }
+
+    // ── Manual rating preview ──────────────────────────────────────────────────
     function updateManualPreview() {
       const tr      = parseFloat(document.getElementById('tipRanksInput').value)
       const ms      = parseInt(document.getElementById('morningstarInput').value)
@@ -494,53 +587,6 @@
 
     document.getElementById('tipRanksInput').addEventListener('input', updateManualPreview)
     document.getElementById('morningstarInput').addEventListener('input', updateManualPreview)
-
-    function renderCard(stock) {
-      document.getElementById('cardTicker').textContent = stock.ticker
-      document.getElementById('cardName').textContent   = stock.name || ''
-      document.getElementById('cardDate').textContent   = new Date().toLocaleDateString('en-US')
-      document.getElementById('stockCard').style.display = 'block'
-
-      const grid = document.getElementById('metricsGrid')
-      grid.innerHTML = `
-        <div class="metric">
-          <div class="metric-label">Price</div>
-          <div>${fmtPrice52(stock.price, stock.week52High)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">52W High</div>
-          <div class="metric-value">$${fmt(stock.week52High)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">52W Low</div>
-          <div class="metric-value">$${fmt(stock.week52Low)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">P/E Ratio</div>
-          <div>${fmtPE(stock.peRatio)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Book Value</div>
-          <div class="metric-value">$${fmt(stock.bookValue)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">P/B Ratio</div>
-          <div>${fmtPB(stock.pbRatio)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Analyst Rating</div>
-          <div>${fmtAnalyst(stock.analystRating)}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Div Yield</div>
-          <div class="metric-value">
-            ${ stock.dividendYield != null
-              ? stock.dividendYield.toFixed(2) + '%'
-              : 'N/A' }
-          </div>
-        </div>
-      `
-    }
 
     // ── Lookup stock ───────────────────────────────────────────────────────────
     document.getElementById('lookupBtn').addEventListener('click', async () => {
@@ -625,7 +671,6 @@
 
         text.textContent = data.summary
 
-        // Save summary to sheet
         await fetch('/.netlify/functions/stock-lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -703,7 +748,6 @@
         }
 
         tbody.innerHTML = dataRows.reverse().map(r => {
-          // 0=Date 1=Ticker 2=Price 3=52WH 4=52WL 5=PE 6=BV 7=PB 8=Analyst 9=DivYield 10=TipRanks 11=Morningstar 12=AISummary
           const pe    = parseFloat(r[5])
           const pb    = parseFloat(r[7])
           const tr    = parseFloat(r[10])
