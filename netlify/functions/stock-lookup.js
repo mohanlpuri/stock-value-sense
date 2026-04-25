@@ -45,17 +45,18 @@ async function saveToSheet(token, stock) {
   const row  = [
     date,
     stock.ticker,
-    stock.price         != null ? stock.price.toFixed(2)      : '',
-    stock.week52High    != null ? stock.week52High.toFixed(2)  : '',
-    stock.week52Low     != null ? stock.week52Low.toFixed(2)   : '',
-    stock.peRatio       != null ? stock.peRatio.toFixed(2)     : '',
-    stock.bookValue     != null ? stock.bookValue.toFixed(2)   : '',
-    stock.pbRatio       != null ? stock.pbRatio.toFixed(2)     : '',
-    stock.analystRating != null ? stock.analystRating          : '',
-    stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : '',
-    stock.tipRanks      != null ? stock.tipRanks               : '',
-    stock.morningstar   != null ? stock.morningstar            : '',
-    stock.aiSummary     != null ? stock.aiSummary              : ''
+    stock.price         != null ? stock.price.toFixed(2)     : '',
+    stock.week52High    != null ? stock.week52High.toFixed(2) : '',
+    stock.week52Low     != null ? stock.week52Low.toFixed(2)  : '',
+    stock.peRatio       != null ? stock.peRatio.toFixed(2)    : '',
+    stock.bookValue     != null ? stock.bookValue.toFixed(2)  : '',
+    stock.pbRatio       != null ? stock.pbRatio.toFixed(2)    : '',
+    stock.analystRating != null ? stock.analystRating         : '',
+    // FIXED: Finnhub already returns dividend yield as a percentage — no * 100
+    stock.dividendYield != null ? stock.dividendYield.toFixed(2) + '%' : '',
+    stock.tipRanks      != null ? stock.tipRanks              : '',
+    stock.morningstar   != null ? stock.morningstar           : '',
+    stock.aiSummary     != null ? stock.aiSummary             : ''
   ]
 
   const existing    = await readSheet(token)
@@ -120,9 +121,9 @@ async function fetchStock(ticker) {
     name:          profile.name || ticker,
     sector:        profile.finnhubIndustry || '',
     price:         price,
-    week52High:    metrics['52WeekHigh']            || null,
-    week52Low:     metrics['52WeekLow']             || null,
-    peRatio:       metrics['peBasicExclExtraTTM']   || metrics['peAnnual'] || null,
+    week52High:    metrics['52WeekHigh']              || null,
+    week52Low:     metrics['52WeekLow']               || null,
+    peRatio:       metrics['peBasicExclExtraTTM']     || metrics['peAnnual'] || null,
     bookValue:     bookValue,
     pbRatio:       pbRatio,
     analystRating: analystRating,
@@ -145,7 +146,7 @@ Stock data:
 - Book Value/Share: $${stock.bookValue != null ? stock.bookValue.toFixed(2) : 'N/A'}
 - P/B Ratio: ${stock.pbRatio != null ? stock.pbRatio.toFixed(2) : 'N/A'}
 - Analyst Rating: ${stock.analystRating || 'N/A'}
-- Dividend Yield: ${stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : 'N/A'}
+- Dividend Yield: ${stock.dividendYield != null ? stock.dividendYield.toFixed(2) + '%' : 'N/A'}
 
 Write only the summary paragraph, no headings or bullet points.`
 

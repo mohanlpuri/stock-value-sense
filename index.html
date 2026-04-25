@@ -141,7 +141,7 @@
     .metric-value.green  { color: #2d7a2d; background: #eafaea; border-radius: 6px; padding: 2px 6px; display: inline-block; }
     .metric-value.yellow { color: #8a6000; background: #fff8e0; border-radius: 6px; padding: 2px 6px; display: inline-block; }
 
-    /* ── AI Summary section ─────────────────────────────────── */
+    /* ── AI Summary trigger ──────────────────────────────────── */
     .ai-trigger {
       display: none;
       margin-bottom: 1rem;
@@ -171,10 +171,7 @@
       letter-spacing: 0.05em;
     }
 
-    .ai-summary-ticker {
-      font-size: 12px;
-      color: #aaa;
-    }
+    .ai-summary-ticker { font-size: 12px; color: #aaa; }
 
     .ai-summary-text {
       font-size: 14px;
@@ -238,10 +235,7 @@
       text-align: center;
     }
 
-    .manual-field .hint {
-      font-size: 10px;
-      color: #888;
-    }
+    .manual-field .hint { font-size: 10px; color: #888; }
 
     .manual-preview {
       display: flex;
@@ -286,11 +280,7 @@
       color: #666;
     }
 
-    .legend-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-    }
-
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
     .legend-dot.green  { background: #2d7a2d; }
     .legend-dot.yellow { background: #c8a000; }
     .legend-dot.purple { background: #5b3fc8; }
@@ -303,11 +293,7 @@
       margin-bottom: 10px;
     }
 
-    .history-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1a1a1a;
-    }
+    .history-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
 
     .table-wrap { overflow-x: auto; }
 
@@ -346,9 +332,8 @@
       color: #555;
       font-style: italic;
       font-size: 12px;
+      cursor: help;
     }
-
-    .summary-cell[title] { cursor: help; }
   </style>
 </head>
 <body>
@@ -373,12 +358,12 @@
       <div class="metrics-grid" id="metricsGrid"></div>
     </div>
 
-    <!-- AI Summary trigger button -->
+    <!-- AI Summary trigger -->
     <div class="ai-trigger" id="aiTrigger">
       <button class="btn btn-ai" id="aiSummaryBtn">🤖 Get AI Summary</button>
     </div>
 
-    <!-- AI Summary box — shown after generation -->
+    <!-- AI Summary box -->
     <div class="ai-summary-box" id="aiSummaryBox">
       <div class="ai-summary-header">
         <span class="ai-summary-label">🤖 AI Summary</span>
@@ -452,7 +437,6 @@
     let currentTicker = null
     let currentStock  = null
 
-    // ── Formatting helpers ─────────────────────────────────────────────────────
     function fmt(v, digits=2) {
       return v != null ? parseFloat(v).toFixed(digits) : 'N/A'
     }
@@ -489,7 +473,6 @@
       return `<span style="color:${color}; font-weight:600">${r}</span>`
     }
 
-    // ── Manual rating preview ──────────────────────────────────────────────────
     function updateManualPreview() {
       const tr      = parseFloat(document.getElementById('tipRanksInput').value)
       const ms      = parseInt(document.getElementById('morningstarInput').value)
@@ -500,7 +483,6 @@
         const cls = tr >= 8 ? 'green' : ''
         html += `<div class="manual-badge ${cls}">Tip Ranks: ${tr} ${tr >= 8 ? '✅' : ''}</div>`
       }
-
       if (!isNaN(ms) && ms >= 1 && ms <= 5) {
         const stars = '★'.repeat(ms) + '☆'.repeat(5 - ms)
         const cls   = ms >= 4 ? 'green' : ''
@@ -513,7 +495,6 @@
     document.getElementById('tipRanksInput').addEventListener('input', updateManualPreview)
     document.getElementById('morningstarInput').addEventListener('input', updateManualPreview)
 
-    // ── Render stock card ──────────────────────────────────────────────────────
     function renderCard(stock) {
       document.getElementById('cardTicker').textContent = stock.ticker
       document.getElementById('cardName').textContent   = stock.name || ''
@@ -552,7 +533,11 @@
         </div>
         <div class="metric">
           <div class="metric-label">Div Yield</div>
-          <div class="metric-value">${stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : 'N/A'}</div>
+          <div class="metric-value">
+            ${ stock.dividendYield != null
+              ? stock.dividendYield.toFixed(2) + '%'
+              : 'N/A' }
+          </div>
         </div>
       `
     }
@@ -567,10 +552,9 @@
       const btn = document.getElementById('lookupBtn')
       const msg = document.getElementById('statusMsg')
 
-      btn.disabled = true
+      btn.disabled    = true
       msg.textContent = 'Fetching data...'
 
-      // Reset all sections
       document.getElementById('stockCard').style.display     = 'none'
       document.getElementById('aiTrigger').style.display     = 'none'
       document.getElementById('aiSummaryBox').style.display  = 'none'
@@ -597,8 +581,6 @@
 
         currentStock = data.stock
         renderCard(data.stock)
-
-        // Show AI trigger button and manual ratings
         document.getElementById('aiTrigger').style.display     = 'block'
         document.getElementById('manualSection').style.display = 'block'
         msg.textContent = '✅ Data fetched and saved to sheet.'
@@ -615,16 +597,16 @@
     document.getElementById('aiSummaryBtn').addEventListener('click', async () => {
       if (!currentStock) return
 
-      const btn     = document.getElementById('aiSummaryBtn')
-      const box     = document.getElementById('aiSummaryBox')
-      const text    = document.getElementById('aiSummaryText')
-      const ticker  = document.getElementById('aiSummaryTicker')
+      const btn    = document.getElementById('aiSummaryBtn')
+      const box    = document.getElementById('aiSummaryBox')
+      const text   = document.getElementById('aiSummaryText')
+      const ticker = document.getElementById('aiSummaryTicker')
 
-      btn.disabled        = true
-      btn.textContent     = '⏳ Generating...'
-      box.style.display   = 'block'
-      ticker.textContent  = currentTicker
-      text.innerHTML      = '<span class="ai-loading">Analyzing stock data, please wait...</span>'
+      btn.disabled       = true
+      btn.textContent    = '⏳ Generating...'
+      box.style.display  = 'block'
+      ticker.textContent = currentTicker
+      text.innerHTML     = '<span class="ai-loading">Analyzing stock data, please wait...</span>'
 
       try {
         const res  = await fetch('/.netlify/functions/stock-lookup', {
@@ -679,8 +661,8 @@
           body: JSON.stringify({
             action:      'saveRatings',
             ticker:      currentTicker,
-            tipRanks:    tipRanks    !== '' ? parseFloat(tipRanks)   : null,
-            morningstar: morningstar !== '' ? parseInt(morningstar)  : null
+            tipRanks:    tipRanks    !== '' ? parseFloat(tipRanks)  : null,
+            morningstar: morningstar !== '' ? parseInt(morningstar) : null
           })
         })
         const data = await res.json()
@@ -712,7 +694,7 @@
         const data = await res.json()
         const rows = data.rows || []
 
-        const tbody   = document.getElementById('historyBody')
+        const tbody    = document.getElementById('historyBody')
         const dataRows = rows.filter((r, i) => i > 0 && r[1] && r[1] !== 'Ticker')
 
         if (dataRows.length === 0) {
