@@ -74,6 +74,12 @@
       color: #1a1a1a;
     }
 
+    .btn-ai {
+      background: #5b3fc8;
+      border-color: #5b3fc8;
+      color: white;
+    }
+
     #statusMsg {
       font-size: 13px;
       color: #888;
@@ -134,6 +140,53 @@
 
     .metric-value.green  { color: #2d7a2d; background: #eafaea; border-radius: 6px; padding: 2px 6px; display: inline-block; }
     .metric-value.yellow { color: #8a6000; background: #fff8e0; border-radius: 6px; padding: 2px 6px; display: inline-block; }
+
+    /* ── AI Summary section ─────────────────────────────────── */
+    .ai-trigger {
+      display: none;
+      margin-bottom: 1rem;
+    }
+
+    .ai-summary-box {
+      display: none;
+      border: 2px solid #5b3fc8;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 1rem;
+      background: #f8f5ff;
+    }
+
+    .ai-summary-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .ai-summary-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #5b3fc8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .ai-summary-ticker {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .ai-summary-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .ai-loading {
+      font-size: 13px;
+      color: #5b3fc8;
+      font-style: italic;
+    }
 
     /* ── Manual ratings section ─────────────────────────────── */
     .manual-section {
@@ -240,6 +293,7 @@
 
     .legend-dot.green  { background: #2d7a2d; }
     .legend-dot.yellow { background: #c8a000; }
+    .legend-dot.purple { background: #5b3fc8; }
 
     /* ── History table ──────────────────────────────────────── */
     .history-header {
@@ -275,15 +329,26 @@
     td {
       padding: 9px 12px;
       border-bottom: 1px solid #e8e8e8;
-      white-space: nowrap;
     }
 
     tr:hover td { background: #f5f5f5; }
 
     .empty-state { color: #aaa; text-align: center; padding: 20px; }
 
-    td.green  { color: #2d7a2d; font-weight: 700; background: #eafaea; }
-    td.yellow { color: #8a6000; font-weight: 700; background: #fff8e0; }
+    td.green  { color: #2d7a2d; font-weight: 700; background: #eafaea; white-space: nowrap; }
+    td.yellow { color: #8a6000; font-weight: 700; background: #fff8e0; white-space: nowrap; }
+
+    .summary-cell {
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: #555;
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    .summary-cell[title] { cursor: help; }
   </style>
 </head>
 <body>
@@ -308,7 +373,21 @@
       <div class="metrics-grid" id="metricsGrid"></div>
     </div>
 
-    <!-- Manual ratings section — shown after Finnhub data loads -->
+    <!-- AI Summary trigger button -->
+    <div class="ai-trigger" id="aiTrigger">
+      <button class="btn btn-ai" id="aiSummaryBtn">🤖 Get AI Summary</button>
+    </div>
+
+    <!-- AI Summary box — shown after generation -->
+    <div class="ai-summary-box" id="aiSummaryBox">
+      <div class="ai-summary-header">
+        <span class="ai-summary-label">🤖 AI Summary</span>
+        <span class="ai-summary-ticker" id="aiSummaryTicker"></span>
+      </div>
+      <div class="ai-summary-text" id="aiSummaryText"></div>
+    </div>
+
+    <!-- Manual ratings section -->
     <div class="manual-section" id="manualSection">
       <h3>📝 Add Your Own Ratings (optional)</h3>
       <div class="manual-fields">
@@ -334,6 +413,7 @@
     <div class="legend">
       <div class="legend-item"><div class="legend-dot green"></div> Attractive value</div>
       <div class="legend-item"><div class="legend-dot yellow"></div> Caution — high valuation</div>
+      <div class="legend-item"><div class="legend-dot purple"></div> AI summary</div>
     </div>
 
     <!-- History table -->
@@ -358,10 +438,11 @@
             <th>Div Yield</th>
             <th>Tip Ranks</th>
             <th>Morningstar ★</th>
+            <th>AI Summary</th>
           </tr>
         </thead>
         <tbody id="historyBody">
-          <tr><td colspan="12" class="empty-state">No evaluations yet.</td></tr>
+          <tr><td colspan="13" class="empty-state">No evaluations yet.</td></tr>
         </tbody>
       </table>
     </div>
@@ -369,6 +450,7 @@
 
   <script>
     let currentTicker = null
+    let currentStock  = null
 
     // ── Formatting helpers ─────────────────────────────────────────────────────
     function fmt(v, digits=2) {
@@ -378,49 +460,44 @@
     function fmtPE(pe) {
       if (pe == null) return '<span style="color:#aaa">N/A</span>'
       const v = parseFloat(pe)
-      if (v < 20)  return `<span class="metric-value green">${ v.toFixed(1) }x</span>`
-      if (v > 40)  return `<span class="metric-value yellow">${ v.toFixed(1) }x</span>`
-      return `<span class="metric-value">${ v.toFixed(1) }x</span>`
+      if (v < 20)  return `<span class="metric-value green">${v.toFixed(1)}x</span>`
+      if (v > 40)  return `<span class="metric-value yellow">${v.toFixed(1)}x</span>`
+      return `<span class="metric-value">${v.toFixed(1)}x</span>`
     }
 
     function fmtPB(pb) {
       if (pb == null) return '<span style="color:#aaa">N/A</span>'
       const v = parseFloat(pb)
-      if (v < 3)   return `<span class="metric-value green">${ v.toFixed(2) }x</span>`
-      if (v > 10)  return `<span class="metric-value yellow">${ v.toFixed(2) }x</span>`
-      return `<span class="metric-value">${ v.toFixed(2) }x</span>`
+      if (v < 3)  return `<span class="metric-value green">${v.toFixed(2)}x</span>`
+      if (v > 10) return `<span class="metric-value yellow">${v.toFixed(2)}x</span>`
+      return `<span class="metric-value">${v.toFixed(2)}x</span>`
     }
 
     function fmtPrice52(price, high) {
       if (!price || !high) return '<span style="color:#aaa">N/A</span>'
       const pct = (price / high) * 100
-      if (pct <= 60) return `<span class="metric-value green">$${ parseFloat(price).toFixed(2) }</span>`
-      return `<span class="metric-value">$${ parseFloat(price).toFixed(2) }</span>`
+      if (pct <= 60) return `<span class="metric-value green">$${parseFloat(price).toFixed(2)}</span>`
+      return `<span class="metric-value">$${parseFloat(price).toFixed(2)}</span>`
     }
 
     function fmtAnalyst(rating) {
       if (!rating) return '<span style="color:#aaa">N/A</span>'
-      const r = String(rating)
-      const color = r.includes('Strong Buy') || r.includes('Buy') ? '#2d7a2d'
-                  : r.includes('Sell')                            ? '#a32d2d'
+      const r     = String(rating)
+      const color = r.includes('Strong Buy') || r.includes('1 -') || r.includes('2 -') ? '#2d7a2d'
+                  : r.includes('4 -') || r.includes('Sell')                             ? '#a32d2d'
                   : '#8a6000'
       return `<span style="color:${color}; font-weight:600">${r}</span>`
     }
 
-    function fmtDivYield(dy) {
-      if (dy == null || dy === '') return 'N/A'
-      return String(dy).includes('%') ? dy : (parseFloat(dy) * 100).toFixed(2) + '%'
-    }
-
-    // ── Tip Ranks & Morningstar preview ───────────────────────────────────────
+    // ── Manual rating preview ──────────────────────────────────────────────────
     function updateManualPreview() {
-      const tr  = parseFloat(document.getElementById('tipRanksInput').value)
-      const ms  = parseInt(document.getElementById('morningstarInput').value)
+      const tr      = parseFloat(document.getElementById('tipRanksInput').value)
+      const ms      = parseInt(document.getElementById('morningstarInput').value)
       const preview = document.getElementById('manualPreview')
       let html = ''
 
       if (!isNaN(tr)) {
-        const cls = tr >= 8 ? 'green' : (tr >= 5 ? '' : 'yellow')
+        const cls = tr >= 8 ? 'green' : ''
         html += `<div class="manual-badge ${cls}">Tip Ranks: ${tr} ${tr >= 8 ? '✅' : ''}</div>`
       }
 
@@ -447,56 +524,62 @@
       grid.innerHTML = `
         <div class="metric">
           <div class="metric-label">Price</div>
-          <div>${ fmtPrice52(stock.price, stock.week52High) }</div>
+          <div>${fmtPrice52(stock.price, stock.week52High)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">52W High</div>
-          <div class="metric-value">$${ fmt(stock.week52High) }</div>
+          <div class="metric-value">$${fmt(stock.week52High)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">52W Low</div>
-          <div class="metric-value">$${ fmt(stock.week52Low) }</div>
+          <div class="metric-value">$${fmt(stock.week52Low)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">P/E Ratio</div>
-          <div>${ fmtPE(stock.peRatio) }</div>
+          <div>${fmtPE(stock.peRatio)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Book Value</div>
-          <div class="metric-value">$${ fmt(stock.bookValue) }</div>
+          <div class="metric-value">$${fmt(stock.bookValue)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">P/B Ratio</div>
-          <div>${ fmtPB(stock.pbRatio) }</div>
+          <div>${fmtPB(stock.pbRatio)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Analyst Rating</div>
-          <div>${ fmtAnalyst(stock.analystRating) }</div>
+          <div>${fmtAnalyst(stock.analystRating)}</div>
         </div>
         <div class="metric">
           <div class="metric-label">Div Yield</div>
-          <div class="metric-value">${ stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : 'N/A' }</div>
+          <div class="metric-value">${stock.dividendYield != null ? (stock.dividendYield * 100).toFixed(2) + '%' : 'N/A'}</div>
         </div>
       `
     }
 
-    // ── Lookup stock ──────────────────────────────────────────────────────────
+    // ── Lookup stock ───────────────────────────────────────────────────────────
     document.getElementById('lookupBtn').addEventListener('click', async () => {
       const ticker = document.getElementById('tickerInput').value.trim().toUpperCase()
       if (!ticker) return
 
       currentTicker = ticker
+      currentStock  = null
       const btn = document.getElementById('lookupBtn')
       const msg = document.getElementById('statusMsg')
 
       btn.disabled = true
       msg.textContent = 'Fetching data...'
-      document.getElementById('stockCard').style.display    = 'none'
+
+      // Reset all sections
+      document.getElementById('stockCard').style.display     = 'none'
+      document.getElementById('aiTrigger').style.display     = 'none'
+      document.getElementById('aiSummaryBox').style.display  = 'none'
       document.getElementById('manualSection').style.display = 'none'
-      document.getElementById('saveMsg').textContent = ''
-      document.getElementById('tipRanksInput').value    = ''
-      document.getElementById('morningstarInput').value = ''
-      document.getElementById('manualPreview').innerHTML = ''
+      document.getElementById('saveMsg').textContent         = ''
+      document.getElementById('tipRanksInput').value         = ''
+      document.getElementById('morningstarInput').value      = ''
+      document.getElementById('manualPreview').innerHTML     = ''
+      document.getElementById('aiSummaryText').textContent   = ''
 
       try {
         const res  = await fetch('/.netlify/functions/stock-lookup', {
@@ -512,7 +595,11 @@
           return
         }
 
+        currentStock = data.stock
         renderCard(data.stock)
+
+        // Show AI trigger button and manual ratings
+        document.getElementById('aiTrigger').style.display     = 'block'
         document.getElementById('manualSection').style.display = 'block'
         msg.textContent = '✅ Data fetched and saved to sheet.'
         loadHistory()
@@ -524,27 +611,76 @@
       btn.disabled = false
     })
 
+    // ── Get AI Summary ─────────────────────────────────────────────────────────
+    document.getElementById('aiSummaryBtn').addEventListener('click', async () => {
+      if (!currentStock) return
+
+      const btn     = document.getElementById('aiSummaryBtn')
+      const box     = document.getElementById('aiSummaryBox')
+      const text    = document.getElementById('aiSummaryText')
+      const ticker  = document.getElementById('aiSummaryTicker')
+
+      btn.disabled        = true
+      btn.textContent     = '⏳ Generating...'
+      box.style.display   = 'block'
+      ticker.textContent  = currentTicker
+      text.innerHTML      = '<span class="ai-loading">Analyzing stock data, please wait...</span>'
+
+      try {
+        const res  = await fetch('/.netlify/functions/stock-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'aiSummary', stock: currentStock })
+        })
+        const data = await res.json()
+
+        if (!res.ok || data.error) {
+          text.textContent = '❌ ' + (data.error || 'Error generating summary')
+          btn.disabled     = false
+          btn.textContent  = '🤖 Get AI Summary'
+          return
+        }
+
+        text.textContent = data.summary
+
+        // Save summary to sheet
+        await fetch('/.netlify/functions/stock-lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'saveAISummary', ticker: currentTicker, aiSummary: data.summary })
+        })
+
+        loadHistory()
+
+      } catch(e) {
+        text.textContent = '❌ Network error: ' + e.message
+      }
+
+      btn.disabled    = false
+      btn.textContent = '🤖 Get AI Summary'
+    })
+
     // ── Save manual ratings ────────────────────────────────────────────────────
     document.getElementById('saveRatingsBtn').addEventListener('click', async () => {
       if (!currentTicker) return
 
-      const tipRanks   = document.getElementById('tipRanksInput').value.trim()
+      const tipRanks    = document.getElementById('tipRanksInput').value.trim()
       const morningstar = document.getElementById('morningstarInput').value.trim()
+      const saveBtn     = document.getElementById('saveRatingsBtn')
+      const saveMsg     = document.getElementById('saveMsg')
 
-      const saveBtn = document.getElementById('saveRatingsBtn')
-      const saveMsg = document.getElementById('saveMsg')
-      saveBtn.disabled  = true
+      saveBtn.disabled    = true
       saveMsg.textContent = 'Saving...'
 
       try {
-        const res = await fetch('/.netlify/functions/stock-lookup', {
+        const res  = await fetch('/.netlify/functions/stock-lookup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             action:      'saveRatings',
             ticker:      currentTicker,
-            tipRanks:    tipRanks    !== '' ? parseFloat(tipRanks)    : null,
-            morningstar: morningstar !== '' ? parseInt(morningstar)   : null
+            tipRanks:    tipRanks    !== '' ? parseFloat(tipRanks)   : null,
+            morningstar: morningstar !== '' ? parseInt(morningstar)  : null
           })
         })
         const data = await res.json()
@@ -565,7 +701,7 @@
       saveBtn.disabled = false
     })
 
-    // ── Load history ──────────────────────────────────────────────────────────
+    // ── Load history ───────────────────────────────────────────────────────────
     async function loadHistory() {
       try {
         const res  = await fetch('/.netlify/functions/stock-lookup', {
@@ -576,26 +712,27 @@
         const data = await res.json()
         const rows = data.rows || []
 
-        const tbody = document.getElementById('historyBody')
-        // Skip header row (row 0) if present
+        const tbody   = document.getElementById('historyBody')
         const dataRows = rows.filter((r, i) => i > 0 && r[1] && r[1] !== 'Ticker')
 
         if (dataRows.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No evaluations yet.</td></tr>'
+          tbody.innerHTML = '<tr><td colspan="13" class="empty-state">No evaluations yet.</td></tr>'
           return
         }
 
         tbody.innerHTML = dataRows.reverse().map(r => {
-          // Columns: 0=Date,1=Ticker,2=Price,3=52WH,4=52WL,5=PE,6=BV,7=PB,8=Analyst,9=DivYield,10=TipRanks,11=Morningstar
-          const pe   = parseFloat(r[5])
-          const pb   = parseFloat(r[7])
-          const tr   = parseFloat(r[10])
-          const ms   = parseInt(r[11])
-          const pePct = isNaN(pe) ? '' : pe < 20 ? 'green' : pe > 40 ? 'yellow' : ''
-          const pbPct = isNaN(pb) ? '' : pb < 3  ? 'green' : pb > 10 ? 'yellow' : ''
+          // 0=Date 1=Ticker 2=Price 3=52WH 4=52WL 5=PE 6=BV 7=PB 8=Analyst 9=DivYield 10=TipRanks 11=Morningstar 12=AISummary
+          const pe    = parseFloat(r[5])
+          const pb    = parseFloat(r[7])
+          const tr    = parseFloat(r[10])
+          const ms    = parseInt(r[11])
+          const peCls = isNaN(pe) ? '' : pe < 20 ? 'green' : pe > 40 ? 'yellow' : ''
+          const pbCls = isNaN(pb) ? '' : pb < 3  ? 'green' : pb > 10 ? 'yellow' : ''
           const trCls = isNaN(tr) ? '' : tr >= 8 ? 'green' : ''
           const msCls = isNaN(ms) ? '' : ms >= 4 ? 'green' : ''
-          const msStars = !isNaN(ms) && ms >= 1 ? '★'.repeat(ms) + '☆'.repeat(5 - ms) : (r[11] || '')
+          const msStars = (!isNaN(ms) && ms >= 1) ? '★'.repeat(ms) + '☆'.repeat(5 - ms) : (r[11] || '')
+          const aiText  = r[12] || ''
+          const aiShort = aiText.length > 60 ? aiText.slice(0, 60) + '…' : aiText
 
           return `<tr>
             <td>${r[0]  || ''}</td>
@@ -603,13 +740,14 @@
             <td>$${r[2] || ''}</td>
             <td>${r[3]  || ''}</td>
             <td>${r[4]  || ''}</td>
-            <td class="${pePct}">${r[5] || ''}</td>
+            <td class="${peCls}">${r[5] || ''}</td>
             <td>${r[6]  || ''}</td>
-            <td class="${pbPct}">${r[7] || ''}</td>
+            <td class="${pbCls}">${r[7] || ''}</td>
             <td>${r[8]  || ''}</td>
             <td>${r[9]  || ''}</td>
             <td class="${trCls}">${r[10] || ''}</td>
             <td class="${msCls}">${msStars}</td>
+            <td class="summary-cell" title="${aiText.replace(/"/g, '&quot;')}">${aiShort}</td>
           </tr>`
         }).join('')
 
@@ -623,7 +761,6 @@
       if (e.key === 'Enter') document.getElementById('lookupBtn').click()
     })
 
-    // Load history on page open
     loadHistory()
   </script>
 </body>
